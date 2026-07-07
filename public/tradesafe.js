@@ -420,8 +420,6 @@ function openTradeModal(tradeId, prefill){
   document.getElementById('tPostChange').value = d.postChange || '';
   document.getElementById('tPostEmotion').value = d.postEmotion || '';
 
-  populateNewsEventSelect(d.newsEvent || '');
-
   const preview = document.getElementById('tScreenshotPreview');
   if (trade && trade.screenshot){ preview.src = trade.screenshot; preview.classList.remove('hidden'); state.pendingScreenshot = trade.screenshot; }
   else { preview.classList.add('hidden'); preview.src=''; }
@@ -429,18 +427,16 @@ function openTradeModal(tradeId, prefill){
 
   document.getElementById('tradeModal').classList.remove('hidden');
 }
-function populateNewsEventSelect(selected){
-  const sel = document.getElementById('tNewsEvent');
-  sel.innerHTML = '<option value="">None</option>';
-  getWeekEvents().forEach(ev=>{
-    const label = `${ev.date} ${ev.time} · ${ev.currency} · ${ev.title}`;
-    const opt = document.createElement('option');
-    opt.value = label; opt.textContent = label;
-    if (label===selected) opt.selected = true;
-    sel.appendChild(opt);
-  });
-}
 document.getElementById('newTradeBtn').addEventListener('click', ()=> openTradeModal(null, null));
+
+// P&L stepper buttons: adjust by $10 per click, treating blank as 0.
+function stepPnl(delta){
+  const el = document.getElementById('tPnl');
+  const current = el.value==='' ? 0 : (parseFloat(el.value) || 0);
+  el.value = Math.round((current + delta) * 100) / 100;
+}
+document.getElementById('tPnlMinus').addEventListener('click', ()=> stepPnl(-10));
+document.getElementById('tPnlPlus').addEventListener('click', ()=> stepPnl(10));
 document.getElementById('tradeModalClose').addEventListener('click', closeTradeModal);
 document.getElementById('tradeCancelBtn').addEventListener('click', closeTradeModal);
 function closeTradeModal(){ document.getElementById('tradeModal').classList.add('hidden'); }
@@ -475,7 +471,6 @@ document.getElementById('tradeSaveBtn').addEventListener('click', ()=>{
     pnl: pnlInput==='' ? null : parseFloat(pnlInput),
     setup: document.getElementById('tSetup').value.trim(),
     tags: document.getElementById('tTags').value.split(',').map(s=>s.trim()).filter(Boolean),
-    newsEvent: document.getElementById('tNewsEvent').value,
     preCatalyst: document.getElementById('tPreCatalyst').value,
     prePlan: document.getElementById('tPrePlan').value,
     preEmotion: document.getElementById('tPreEmotion').value,
