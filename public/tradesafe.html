@@ -654,17 +654,17 @@
       </div>
 
       <div class="grid sm:grid-cols-3 gap-2.5">
-        <div><label class="fld">Instrument</label><input id="tInstrument" type="text" /></div>
-        <div><label class="fld">Direction</label><select id="tDirection"><option>Long</option><option>Short</option></select></div>
-        <div><label class="fld">Setup</label><input id="tSetup" type="text" placeholder="e.g. Breakout" /></div>
+        <div id="tInstrumentWrap"><label class="fld">Instrument</label><input id="tInstrument" type="text" /></div>
+        <div><label class="fld">Direction</label><select id="tDirection"><option>Long</option><option>Short</option><option value="No trade">No trade</option></select></div>
+        <div id="tSetupWrap"><label class="fld">Setup</label><input id="tSetup" type="text" placeholder="e.g. Breakout" /></div>
         <div><label class="fld">Date</label><input id="tDate" type="date" /></div>
         <div><label class="fld">Time</label><input id="tTime" type="time" /></div>
-        <div><label class="fld">Size</label><input id="tSize" type="number" step="any" /></div>
-        <div><label class="fld">Entry</label><input id="tEntry" type="number" step="any" /></div>
-        <div><label class="fld">Exit</label><input id="tExit" type="number" step="any" /></div>
-        <div><label class="fld">Planned Risk ($)</label><input id="tRisk" type="number" step="any" /></div>
+        <div id="tSizeWrap"><label class="fld">Size</label><input id="tSize" type="number" step="any" /></div>
+        <div id="tEntryWrap"><label class="fld">Entry</label><input id="tEntry" type="number" step="any" /></div>
+        <div id="tExitWrap"><label class="fld">Exit</label><input id="tExit" type="number" step="any" /></div>
+        <div id="tRiskWrap"><label class="fld">Planned Risk ($)</label><input id="tRisk" type="number" step="any" /></div>
         <div class="sm:col-span-2"><label class="fld">Tags (comma separated)</label><input id="tTags" type="text" placeholder="momentum, news, A+" /></div>
-        <div>
+        <div id="tPnlWrap">
           <label class="fld">P&amp;L ($) — blank if open</label>
           <div class="flex items-center gap-1.5">
             <button type="button" id="tPnlMinus" class="shrink-0 w-9 h-9 rounded-lg border border-line bg-panel2 text-loss text-lg leading-none hover:border-loss" aria-label="Decrease P&amp;L">&minus;</button>
@@ -672,12 +672,13 @@
             <button type="button" id="tPnlPlus" class="shrink-0 w-9 h-9 rounded-lg border border-line bg-panel2 text-profit text-lg leading-none hover:border-profit" aria-label="Increase P&amp;L">+</button>
           </div>
         </div>
-        <div class="sm:col-span-3">
+        <div id="tBreakEvenWrap" class="sm:col-span-3">
           <label class="flex items-center gap-2 text-sm cursor-pointer select-none">
             <input id="tBreakEven" type="checkbox" class="w-4 h-4 accent-gold" />
             <span>Mark as break-even <span class="text-faint">— excluded from average risk:reward</span></span>
           </label>
         </div>
+        <div id="tNoTradeNote" class="sm:col-span-3 hidden text-xs text-muted rounded-lg border border-line bg-panel2 px-3 py-2">Logging a no-trade day. It&apos;s saved to your journal but won&apos;t count toward total trades, win rate, P&amp;L, or any other stats.</div>
       </div>
 
       <div class="mt-2.5 bg-panel2 border border-line rounded-xl p-3">
@@ -699,9 +700,9 @@
       </div>
 
       <div class="mt-2.5">
-        <label class="fld">Chart screenshot</label>
-        <input id="tScreenshot" type="file" accept="image/*" />
-        <img id="tScreenshotPreview" class="hidden mt-2 rounded-lg border border-line max-h-36" alt="Trade screenshot preview" />
+        <label class="fld">Chart screenshots <span class="text-faint">— add as many as you like</span></label>
+        <input id="tScreenshot" type="file" accept="image/*" multiple />
+        <div id="tScreenshotList" class="hidden mt-2 grid grid-cols-3 sm:grid-cols-4 gap-2"></div>
       </div>
 
       <div class="flex items-center justify-between mt-4">
@@ -840,6 +841,6 @@
   <!-- TOAST -->
   <div id="toast" class="hidden fixed bottom-20 lg:bottom-6 left-1/2 -translate-x-1/2 z-[60] bg-panel2 border border-gold/40 text-sm px-4 py-2.5 rounded-lg shadow-lg"></div>
 
-  <script src="/tradesafe.js?v=20"></script>
+  <script src="/tradesafe.js?v=21"></script>
 </body>
 </html>
