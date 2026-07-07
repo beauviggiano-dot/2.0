@@ -26,6 +26,7 @@ export function GateScreen({ variant, username, checkoutUrl, message }: GateScre
             </p>
             <a
               href="/api/auth/login"
+              target="_top"
               className="mt-8 inline-flex w-full items-center justify-center rounded-lg bg-[#D4A24C] px-5 py-3 font-semibold text-[#14110A] transition hover:brightness-110"
             >
               Log in with Whop
@@ -45,6 +46,7 @@ export function GateScreen({ variant, username, checkoutUrl, message }: GateScre
             {checkoutUrl ? (
               <a
                 href={checkoutUrl}
+                target="_top"
                 className="mt-8 inline-flex w-full items-center justify-center rounded-lg bg-[#D4A24C] px-5 py-3 font-semibold text-[#14110A] transition hover:brightness-110"
               >
                 Get access
@@ -52,6 +54,7 @@ export function GateScreen({ variant, username, checkoutUrl, message }: GateScre
             ) : null}
             <a
               href="/api/auth/logout"
+              target="_top"
               className="mt-3 inline-flex w-full items-center justify-center rounded-lg border border-[#232A33] px-5 py-3 text-sm text-[#8B93A1] transition hover:border-[#D4A24C]/40 hover:text-[#D4A24C]"
             >
               Sign in with a different account
@@ -69,6 +72,7 @@ export function GateScreen({ variant, username, checkoutUrl, message }: GateScre
             </p>
             <a
               href="/api/auth/login"
+              target="_top"
               className="mt-8 inline-flex w-full items-center justify-center rounded-lg bg-[#D4A24C] px-5 py-3 font-semibold text-[#14110A] transition hover:brightness-110"
             >
               Try again
