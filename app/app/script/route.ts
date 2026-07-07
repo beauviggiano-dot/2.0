@@ -1,22 +1,14 @@
 import { readFile } from "node:fs/promises"
 import { join } from "node:path"
 import { NextResponse } from "next/server"
-import { headers } from "next/headers"
-import { auth } from "@/lib/auth"
 
 export const dynamic = "force-dynamic"
 
-// Serves the TradeSafe application JavaScript, gated behind a valid session so
-// the app code isn't publicly downloadable.
+// Serves the TradeSafe application JavaScript. The app code itself isn't
+// sensitive — user data is protected by the bearer token on /api/sync — and
+// the client bootstrap redirects unauthenticated visitors to /sign-in before
+// this ever renders anything meaningful.
 export async function GET() {
-  const session = await auth.api.getSession({ headers: await headers() })
-  if (!session?.user) {
-    return new NextResponse("// unauthorized", {
-      status: 401,
-      headers: { "content-type": "application/javascript; charset=utf-8" },
-    })
-  }
-
   const js = await readFile(join(process.cwd(), "private", "tradesafe.js"), "utf8")
   return new NextResponse(js, {
     headers: {

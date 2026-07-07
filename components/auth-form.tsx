@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { authClient } from '@/lib/auth-client'
+import { authClient, TOKEN_KEY } from '@/lib/auth-client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -16,6 +16,13 @@ export function AuthForm({ mode }: { mode: 'sign-in' | 'sign-up' }) {
   const [loading, setLoading] = useState(false)
 
   const isSignUp = mode === 'sign-up'
+
+  // If a session token already exists (e.g. returning user), skip the form.
+  useEffect(() => {
+    if (localStorage.getItem(TOKEN_KEY)) {
+      window.location.href = '/app'
+    }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -33,9 +40,9 @@ export function AuthForm({ mode }: { mode: 'sign-in' | 'sign-up' }) {
       return
     }
 
-    // /app is a Route Handler that serves raw HTML, not a React page, so a soft
-    // client-side navigation (router.push) can't reach it. Force a full page
-    // load so the browser actually requests the handler with the new session.
+    // The auth client's onSuccess handler has already stored the bearer token
+    // in localStorage. /app is a Route Handler serving raw HTML (not a React
+    // page), so use a full page load rather than a soft router navigation.
     window.location.href = '/app'
   }
 

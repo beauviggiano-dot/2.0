@@ -1844,9 +1844,13 @@ function bindTodEditor(){
 }
 
 /* ---- account controls (email display + log out) ---- */
+var TOKEN_KEY = 'ts_bearer_token';
+function bearerToken(){ try { return localStorage.getItem(TOKEN_KEY) || ''; } catch(e){ return ''; } }
+function authHeaders(extra){ var h = extra || {}; var t = bearerToken(); if (t) h['Authorization'] = 'Bearer ' + t; return h; }
+
 function bindAccount(){
-  // Populate the signed-in user's email from Better Auth.
-  fetch('/api/auth/get-session', { headers:{ 'accept':'application/json' } })
+  // Populate the signed-in user's email from Better Auth (bearer-token authed).
+  fetch('/api/auth/get-session', { headers: authHeaders({ 'accept':'application/json' }) })
     .then(r=> r.ok ? r.json() : null)
     .then(res=>{
       const email = res && res.user && res.user.email;
@@ -1858,9 +1862,13 @@ function bindAccount(){
 
   const logoutBtn = document.getElementById('logoutBtn');
   if (logoutBtn) logoutBtn.addEventListener('click', ()=>{
-    fetch('/api/auth/sign-out', { method:'POST', headers:{ 'content-type':'application/json' }, body:'{}' })
+    fetch('/api/auth/sign-out', { method:'POST', headers: authHeaders({ 'content-type':'application/json' }), body:'{}' })
       .catch(()=>{})
-      .finally(()=>{ location.href = '/sign-in'; });
+      .finally(()=>{
+        // Clear the local token so the app treats the user as signed out.
+        try { localStorage.removeItem(TOKEN_KEY); } catch(e){}
+        location.href = '/sign-in';
+      });
   });
 }
 
