@@ -618,9 +618,60 @@
     </div>
   </div>
 
+  <!-- ============ STRATEGY MODAL ============ -->
+  <div id="strategyModal" class="hidden fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 bg-black/60 overflow-y-auto">
+    <div class="bg-panel border border-line rounded-2xl w-full max-w-lg p-6 my-6">
+      <div class="flex items-center justify-between mb-5">
+        <h2 id="strategyModalTitle" class="font-display font-semibold text-lg">New strategy</h2>
+        <button id="strategyModalClose" class="text-faint hover:text-loss text-2xl leading-none">&times;</button>
+      </div>
+      <div class="grid gap-4">
+        <div><label class="fld">Strategy name</label><input id="sName" type="text" placeholder="e.g. NFP Fade" /></div>
+        <div><label class="fld">Description / rules</label><textarea id="sDesc" rows="3" placeholder="Entry, exit, and risk rules for this strategy"></textarea></div>
+        <div class="grid grid-cols-2 gap-4">
+          <div><label class="fld">Starting capital ($)</label><input id="sCapital" type="number" step="any" placeholder="10000" /></div>
+          <div><label class="fld">Risk per trade ($)</label><input id="sRisk" type="number" step="any" placeholder="100" /></div>
+        </div>
+      </div>
+      <div class="flex items-center justify-between mt-6">
+        <button id="strategyDeleteBtn" class="hidden text-loss text-sm hover:underline">Delete strategy</button>
+        <div class="flex gap-2 ml-auto">
+          <button id="strategyCancelBtn" class="btn-ghost text-sm">Cancel</button>
+          <button id="strategySaveBtn" class="btn-gold text-sm">Save strategy</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ BACKTEST TRADE MODAL ============ -->
+  <div id="btTradeModal" class="hidden fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 bg-black/60 overflow-y-auto">
+    <div class="bg-panel border border-line rounded-2xl w-full max-w-lg p-6 my-6">
+      <div class="flex items-center justify-between mb-5">
+        <h2 id="btTradeModalTitle" class="font-display font-semibold text-lg">Add simulated trade</h2>
+        <button id="btTradeModalClose" class="text-faint hover:text-loss text-2xl leading-none">&times;</button>
+      </div>
+      <div class="grid sm:grid-cols-2 gap-4">
+        <div><label class="fld">Date</label><input id="btDate" type="date" /></div>
+        <div><label class="fld">Instrument</label><input id="btInstrument" type="text" placeholder="e.g. ES" /></div>
+        <div><label class="fld">Direction</label><select id="btDirection"><option>Long</option><option>Short</option></select></div>
+        <div><label class="fld">Result type</label><select id="btResultType"><option value="dollar">Dollar P&amp;L</option><option value="r">R-multiple</option></select></div>
+        <div id="btDollarWrap"><label class="fld">P&amp;L ($)</label><input id="btPnl" type="number" step="any" placeholder="e.g. 250 or -100" /></div>
+        <div id="btRWrap" class="hidden"><label class="fld">R-multiple</label><input id="btR" type="number" step="any" placeholder="e.g. 2 or -1" /></div>
+        <div class="sm:col-span-2"><label class="fld">Notes</label><input id="btNotes" type="text" placeholder="Optional" /></div>
+      </div>
+      <div class="flex items-center justify-between mt-6">
+        <button id="btTradeDeleteBtn" class="hidden text-loss text-sm hover:underline">Delete trade</button>
+        <div class="flex gap-2 ml-auto">
+          <button id="btTradeCancelBtn" class="btn-ghost text-sm">Cancel</button>
+          <button id="btTradeSaveBtn" class="btn-gold text-sm">Save trade</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- TOAST -->
   <div id="toast" class="hidden fixed bottom-20 lg:bottom-6 left-1/2 -translate-x-1/2 z-[60] bg-panel2 border border-gold/40 text-sm px-4 py-2.5 rounded-lg shadow-lg"></div>
 
-  <script src="/tradesafe.js?v=3"></script>
+  <script src="/tradesafe.js?v=4"></script>
 </body>
 </html>

@@ -152,6 +152,7 @@ function setView(view){
   if (view==='dashboard') renderDashboard();
   if (view==='journal') renderJournal();
   if (view==='calendar') renderCalendar();
+  if (view==='backtest') renderBacktest();
   window.scrollTo({top:0});
 }
 document.querySelectorAll('[data-view]').forEach(btn=>{
@@ -1084,6 +1085,264 @@ function renderEquityChart(){
       y:{ grid:{color:th.grid}, ticks:{color:th.text, callback:v=>'$'+v} }
     }, responsive:true }
   });
+}
+
+/* ================================================================
+   BACKTESTING
+   ================================================================ */
+let btEquityChartInstance = null;
+
+// Resolve a trade's dollar result. R-multiple trades use the strategy's risk.
+function btTradePnl(trade, strategy){
+  if (trade.resultType === 'r'){
+    const risk = strategy && strategy.risk ? strategy.risk : 0;
+    return (trade.r || 0) * risk;
+  }
+  return trade.pnl || 0;
+}
+
+function btStats(strategy){
+  const trades = (strategy.trades || []).slice().sort((a,b)=> (a.date||'').localeCompare(b.date||''));
+  const start = strategy.capital || 0;
+  let equity = start, peak = start, maxDD = 0;
+  let wins = 0, losses = 0, grossWin = 0, grossLoss = 0, net = 0;
+  const curve = [{ label: 'Start', value: start }];
+  trades.forEach((t,i)=>{
+    const pnl = btTradePnl(t, strategy);
+    net += pnl; equity += pnl;
+    if (pnl > 0){ wins++; grossWin += pnl; }
+    else if (pnl < 0){ losses++; grossLoss += Math.abs(pnl); }
+    peak = Math.max(peak, equity);
+    maxDD = Math.max(maxDD, peak - equity);
+    curve.push({ label: t.date || ('#'+(i+1)), value: equity });
+  });
+  const decided = wins + losses;
+  return {
+    trades, count: trades.length, net, wins, losses,
+    winRate: decided ? (wins/decided)*100 : 0,
+    profitFactor: grossLoss ? grossWin/grossLoss : (grossWin ? Infinity : 0),
+    expectancy: trades.length ? net/trades.length : 0,
+    avgWin: wins ? grossWin/wins : 0,
+    avgLoss: losses ? -grossLoss/losses : 0,
+    maxDD, endEquity: equity, start, curve,
+  };
+}
+
+function renderBacktest(){
+  bindBacktestControls();
+  renderStrategyList();
+  const strat = state.backtests.find(s=>s.id===state.selectedBacktestId) || state.backtests[0] || null;
+  state.selectedBacktestId = strat ? strat.id : null;
+  const empty = document.getElementById('btEmpty');
+  const detail = document.getElementById('btDetail');
+  if (!strat){ empty.classList.remove('hidden'); detail.classList.add('hidden'); return; }
+  empty.classList.add('hidden'); detail.classList.remove('hidden');
+  renderStrategyDetail(strat);
+}
+
+function renderStrategyList(){
+  const box = document.getElementById('strategyList');
+  if (!state.backtests.length){
+    box.innerHTML = '<div class="text-muted text-sm px-1 py-4">No strategies yet.</div>';
+    return;
+  }
+  box.innerHTML = state.backtests.map(s=>{
+    const st = btStats(s);
+    const active = s.id===state.selectedBacktestId;
+    const pnlClass = st.net>0?'text-profit':st.net<0?'text-loss':'text-muted';
+    return `<button class="strategy-item w-full text-left rounded-lg px-3 py-2.5 border ${active?'border-goldSoft bg-gold/10':'border-line bg-panel2 hover:border-goldSoft'}" data-id="${s.id}">
+        <div class="font-medium text-sm truncate">${s.name}</div>
+        <div class="flex items-center justify-between mt-1 text-xs">
+          <span class="text-faint">${st.count} trade${st.count===1?'':'s'}</span>
+          <span class="num ${pnlClass}">${fmtMoney(st.net)}</span>
+        </div>
+      </button>`;
+  }).join('');
+  box.querySelectorAll('.strategy-item').forEach(btn=>{
+    btn.addEventListener('click', ()=>{ state.selectedBacktestId = btn.dataset.id; renderBacktest(); });
+  });
+}
+
+function renderStrategyDetail(strat){
+  const st = btStats(strat);
+  document.getElementById('btName').textContent = strat.name;
+  document.getElementById('btDesc').textContent = strat.desc || '';
+  document.getElementById('btCapital').textContent = fmtMoney(strat.capital || 0);
+
+  const netEl = document.getElementById('btNetPnl');
+  netEl.textContent = fmtMoney(st.net);
+  netEl.className = 'num text-xl font-semibold mt-1 ' + (st.net>0?'text-profit':st.net<0?'text-loss':'');
+  document.getElementById('btWinRate').textContent = st.count ? st.winRate.toFixed(1)+'%' : '—';
+  document.getElementById('btProfitFactor').textContent = st.count ? (st.profitFactor===Infinity ? '∞' : fmtNum(st.profitFactor,2)) : '—';
+  document.getElementById('btExpectancy').textContent = st.count ? fmtMoney(st.expectancy) : '—';
+  document.getElementById('btTotal').textContent = st.count;
+  document.getElementById('btAvgWin').textContent = st.wins ? fmtMoney(st.avgWin) : '—';
+  document.getElementById('btAvgLoss').textContent = st.losses ? fmtMoney(st.avgLoss) : '—';
+  document.getElementById('btMaxDD').textContent = st.maxDD ? fmtMoney(-st.maxDD) : '—';
+
+  renderBtEquityChart(st);
+  renderBtTradeList(strat);
+}
+
+function renderBtEquityChart(st){
+  const ctx = document.getElementById('btEquityChart');
+  if (!ctx) return;
+  if (btEquityChartInstance) btEquityChartInstance.destroy();
+  const th = chartTheme();
+  const up = st.endEquity >= st.start;
+  const line = up ? cssColor('--c-profit') : cssColor('--c-loss');
+  btEquityChartInstance = new Chart(ctx, {
+    type:'line',
+    data:{ labels: st.curve.map(p=>p.label), datasets:[{
+      data: st.curve.map(p=>p.value), borderColor: line, backgroundColor: line+'22',
+      fill:true, tension:0.25, pointRadius:0, borderWidth:2,
+    }]},
+    options:{ plugins:{legend:{display:false}}, scales:{
+      x:{ grid:{display:false}, ticks:{color:th.text, font:{size:10}, maxTicksLimit:8} },
+      y:{ grid:{color:th.grid}, ticks:{color:th.text, callback:v=>'$'+v.toLocaleString()} }
+    }, responsive:true, maintainAspectRatio:false }
+  });
+}
+
+function renderBtTradeList(strat){
+  const list = document.getElementById('btTradeList');
+  const empty = document.getElementById('btTradeEmpty');
+  const trades = (strat.trades || []).slice().sort((a,b)=> (b.date||'').localeCompare(a.date||''));
+  empty.classList.toggle('hidden', trades.length>0);
+  list.innerHTML = trades.map(t=>{
+    const pnl = btTradePnl(t, strat);
+    const pnlClass = pnl>0?'text-profit':pnl<0?'text-loss':'text-muted';
+    const resultLabel = t.resultType==='r' ? `${t.r>0?'+':''}${fmtNum(t.r,2)}R` : fmtMoney(pnl);
+    return `<button class="bt-trade-item w-full text-left bg-panel2 border border-line rounded-xl px-4 py-3 flex items-center gap-4 hover:border-goldSoft" data-id="${t.id}">
+        <div class="w-24 text-xs num text-muted shrink-0">${t.date || '—'}</div>
+        <div class="w-14 text-xs font-semibold shrink-0">${t.instrument || '—'}</div>
+        <div class="w-14 text-xs shrink-0 ${t.direction==='Short'?'text-loss':'text-profit'}">${t.direction || ''}</div>
+        <div class="flex-1 min-w-0 text-sm truncate text-muted">${t.notes || ''}</div>
+        <div class="num text-sm font-semibold shrink-0 ${pnlClass}">${resultLabel}</div>
+      </button>`;
+  }).join('');
+  list.querySelectorAll('.bt-trade-item').forEach(btn=>{
+    btn.addEventListener('click', ()=> openBtTradeModal(btn.dataset.id));
+  });
+}
+
+/* ---------- Strategy modal ---------- */
+function openStrategyModal(id){
+  state.editingBacktestId = id || null;
+  const s = id ? state.backtests.find(x=>x.id===id) : null;
+  document.getElementById('strategyModalTitle').textContent = s ? 'Edit strategy' : 'New strategy';
+  document.getElementById('sName').value = s ? s.name : '';
+  document.getElementById('sDesc').value = s ? (s.desc||'') : '';
+  document.getElementById('sCapital').value = s ? s.capital : 10000;
+  document.getElementById('sRisk').value = s ? (s.risk||'') : 100;
+  document.getElementById('strategyDeleteBtn').classList.toggle('hidden', !s);
+  document.getElementById('strategyModal').classList.remove('hidden');
+}
+function closeStrategyModal(){ document.getElementById('strategyModal').classList.add('hidden'); state.editingBacktestId=null; }
+function saveStrategy(){
+  const name = document.getElementById('sName').value.trim();
+  if (!name){ toast('Strategy needs a name'); return; }
+  const capital = parseFloat(document.getElementById('sCapital').value) || 0;
+  const risk = parseFloat(document.getElementById('sRisk').value) || 0;
+  const desc = document.getElementById('sDesc').value.trim();
+  if (state.editingBacktestId){
+    const s = state.backtests.find(x=>x.id===state.editingBacktestId);
+    if (s){ s.name=name; s.desc=desc; s.capital=capital; s.risk=risk; }
+  } else {
+    const s = { id: uid(), name, desc, capital, risk, trades: [] };
+    state.backtests.push(s);
+    state.selectedBacktestId = s.id;
+  }
+  save(LS.backtests, state.backtests);
+  closeStrategyModal();
+  renderBacktest();
+  toast('Strategy saved');
+}
+function deleteStrategy(){
+  if (!state.editingBacktestId) return;
+  state.backtests = state.backtests.filter(s=>s.id!==state.editingBacktestId);
+  if (state.selectedBacktestId===state.editingBacktestId) state.selectedBacktestId = null;
+  save(LS.backtests, state.backtests);
+  closeStrategyModal();
+  renderBacktest();
+  toast('Strategy deleted');
+}
+
+/* ---------- Backtest trade modal ---------- */
+function syncBtResultType(){
+  const type = document.getElementById('btResultType').value;
+  document.getElementById('btDollarWrap').classList.toggle('hidden', type!=='dollar');
+  document.getElementById('btRWrap').classList.toggle('hidden', type!=='r');
+}
+function openBtTradeModal(id){
+  const strat = state.backtests.find(s=>s.id===state.selectedBacktestId);
+  if (!strat) return;
+  state.editingBtTradeId = id || null;
+  const t = id ? (strat.trades||[]).find(x=>x.id===id) : null;
+  document.getElementById('btTradeModalTitle').textContent = t ? 'Edit simulated trade' : 'Add simulated trade';
+  document.getElementById('btDate').value = t ? (t.date||'') : todayISO();
+  document.getElementById('btInstrument').value = t ? (t.instrument||'') : '';
+  document.getElementById('btDirection').value = t ? (t.direction||'Long') : 'Long';
+  document.getElementById('btResultType').value = t ? (t.resultType||'dollar') : 'dollar';
+  document.getElementById('btPnl').value = t && t.resultType!=='r' ? (t.pnl ?? '') : '';
+  document.getElementById('btR').value = t && t.resultType==='r' ? (t.r ?? '') : '';
+  document.getElementById('btNotes').value = t ? (t.notes||'') : '';
+  document.getElementById('btTradeDeleteBtn').classList.toggle('hidden', !t);
+  syncBtResultType();
+  document.getElementById('btTradeModal').classList.remove('hidden');
+}
+function closeBtTradeModal(){ document.getElementById('btTradeModal').classList.add('hidden'); state.editingBtTradeId=null; }
+function saveBtTrade(){
+  const strat = state.backtests.find(s=>s.id===state.selectedBacktestId);
+  if (!strat) return;
+  const resultType = document.getElementById('btResultType').value;
+  const trade = {
+    id: state.editingBtTradeId || uid(),
+    date: document.getElementById('btDate').value || todayISO(),
+    instrument: document.getElementById('btInstrument').value.trim(),
+    direction: document.getElementById('btDirection').value,
+    resultType,
+    pnl: resultType==='dollar' ? (parseFloat(document.getElementById('btPnl').value) || 0) : null,
+    r: resultType==='r' ? (parseFloat(document.getElementById('btR').value) || 0) : null,
+    notes: document.getElementById('btNotes').value.trim(),
+  };
+  strat.trades = strat.trades || [];
+  if (state.editingBtTradeId){
+    const idx = strat.trades.findIndex(x=>x.id===state.editingBtTradeId);
+    if (idx>=0) strat.trades[idx] = trade;
+  } else {
+    strat.trades.push(trade);
+  }
+  save(LS.backtests, state.backtests);
+  closeBtTradeModal();
+  renderBacktest();
+  toast('Trade saved');
+}
+function deleteBtTrade(){
+  const strat = state.backtests.find(s=>s.id===state.selectedBacktestId);
+  if (!strat || !state.editingBtTradeId) return;
+  strat.trades = (strat.trades||[]).filter(x=>x.id!==state.editingBtTradeId);
+  save(LS.backtests, state.backtests);
+  closeBtTradeModal();
+  renderBacktest();
+  toast('Trade deleted');
+}
+
+let _btBound = false;
+function bindBacktestControls(){
+  if (_btBound) return; _btBound = true;
+  document.getElementById('newBacktestBtn').addEventListener('click', ()=> openStrategyModal());
+  document.getElementById('btEditBtn').addEventListener('click', ()=> openStrategyModal(state.selectedBacktestId));
+  document.getElementById('strategyModalClose').addEventListener('click', closeStrategyModal);
+  document.getElementById('strategyCancelBtn').addEventListener('click', closeStrategyModal);
+  document.getElementById('strategySaveBtn').addEventListener('click', saveStrategy);
+  document.getElementById('strategyDeleteBtn').addEventListener('click', deleteStrategy);
+  document.getElementById('btAddTradeBtn').addEventListener('click', ()=> openBtTradeModal());
+  document.getElementById('btTradeModalClose').addEventListener('click', closeBtTradeModal);
+  document.getElementById('btTradeCancelBtn').addEventListener('click', closeBtTradeModal);
+  document.getElementById('btTradeSaveBtn').addEventListener('click', saveBtTrade);
+  document.getElementById('btTradeDeleteBtn').addEventListener('click', deleteBtTrade);
+  document.getElementById('btResultType').addEventListener('change', syncBtResultType);
 }
 
 /* ================================================================
