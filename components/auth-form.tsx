@@ -35,7 +35,7 @@ export function AuthForm({ mode }: { mode: 'sign-in' | 'sign-up' }) {
       return
     }
 
-    router.push('/')
+    router.push('/app')
     router.refresh()
   }
 

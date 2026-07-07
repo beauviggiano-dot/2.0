@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation"
 
-// The TradeSafe app is served as a static file. Sending visitors straight to it
-// keeps the app fully public with no login or gating.
+// Everything lives behind auth now: send visitors to the gated app entry,
+// which will bounce them to /sign-in if they don't have a session.
 export default function Page() {
-  redirect("/tradesafe.html")
+  redirect("/app")
 }

@@ -3,8 +3,8 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'TradeSafe — Members Only',
-  description: 'Members-only day trading workspace. Access requires an active Whop membership.',
+  title: 'TradeSafe — Trading Journal',
+  description: 'Your personal day trading journal and backtesting workspace, synced to your account across devices.',
   generator: 'v0.app',
   icons: {
     icon: [
