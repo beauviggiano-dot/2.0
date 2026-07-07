@@ -93,6 +93,8 @@ let state = {
   catFilter: 'all',
   editingTradeId: null,
   pendingScreenshot: null,
+  tradeCalAnchor: new Date(), // dashboard trade calendar current period
+  tradeCalMode: 'month',      // 'month' or 'year'
 };
 
 /* ---------------- HELPERS ---------------- */
@@ -574,10 +576,12 @@ function renderJournal(){
   const search = document.getElementById('filterSearch').value.trim().toLowerCase();
   const result = document.getElementById('filterResult').value;
   const instFilter = document.getElementById('filterInstrument').value;
+  const dateFilter = document.getElementById('filterDate').value;
 
   let list = [...state.trades].sort((a,b)=> (b.date+b.time).localeCompare(a.date+a.time));
   list = list.filter(t=>{
     if (instFilter!=='all' && t.instrument!==instFilter) return false;
+    if (dateFilter && t.date!==dateFilter) return false;
     if (result==='win' && !(t.pnl>0)) return false;
     if (result==='loss' && !(t.pnl<0)) return false;
     if (result==='open' && t.pnl!==null) return false;
@@ -625,9 +629,13 @@ function populateInstrumentFilter(){
   sel.innerHTML = '<option value="all">All instruments</option>' + syms.map(s=>`<option value="${s}">${s}</option>`).join('');
   if (syms.includes(current)) sel.value = current;
 }
-['filterSearch','filterResult','filterInstrument'].forEach(id=>{
+['filterSearch','filterResult','filterInstrument','filterDate'].forEach(id=>{
   document.getElementById(id).addEventListener('input', renderJournal);
   document.getElementById(id).addEventListener('change', renderJournal);
+});
+document.getElementById('filterDateClear').addEventListener('click', ()=>{
+  document.getElementById('filterDate').value = '';
+  renderJournal();
 });
 
 document.getElementById('exportCsvBtn').addEventListener('click', ()=>{
@@ -1087,6 +1095,144 @@ function renderDashboard(){
   });
 
   renderEquityChart();
+  renderTradeCalendar();
+}
+
+/* ---------- Dashboard trade calendar ---------- */
+let _tcBound = false;
+function bindTradeCalendar(){
+  if (_tcBound) return; _tcBound = true;
+  document.querySelectorAll('.tc-mode').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      state.tradeCalMode = btn.dataset.mode;
+      renderTradeCalendar();
+    });
+  });
+  document.getElementById('tcPrev').addEventListener('click', ()=> tcStep(-1));
+  document.getElementById('tcNext').addEventListener('click', ()=> tcStep(1));
+  document.getElementById('tcToday').addEventListener('click', ()=>{
+    state.tradeCalAnchor = new Date();
+    renderTradeCalendar();
+  });
+}
+function tcStep(dir){
+  const a = state.tradeCalAnchor;
+  state.tradeCalAnchor = state.tradeCalMode==='year'
+    ? new Date(a.getFullYear()+dir, 0, 1)
+    : new Date(a.getFullYear(), a.getMonth()+dir, 1);
+  renderTradeCalendar();
+}
+// Sum closed-trade P&L per ISO day.
+function tradesByDay(){
+  const map = {};
+  state.trades.forEach(t=>{
+    if (t.pnl===null || t.pnl===undefined) return;
+    (map[t.date] = map[t.date] || { pnl:0, count:0 });
+    map[t.date].pnl += t.pnl; map[t.date].count++;
+  });
+  return map;
+}
+function renderTradeCalendar(){
+  bindTradeCalendar();
+  document.querySelectorAll('.tc-mode').forEach(btn=>{
+    const active = btn.dataset.mode===state.tradeCalMode;
+    btn.classList.toggle('bg-gold/10', active);
+    btn.classList.toggle('text-gold', active);
+    btn.classList.toggle('font-medium', active);
+    btn.classList.toggle('text-muted', !active);
+  });
+  if (state.tradeCalMode==='year') renderTradeCalYear();
+  else renderTradeCalMonth();
+}
+function renderTradeCalMonth(){
+  const anchor = state.tradeCalAnchor;
+  const year = anchor.getFullYear(), month = anchor.getMonth();
+  document.getElementById('tcLabel').textContent = anchor.toLocaleDateString(undefined,{month:'long', year:'numeric'});
+
+  const byDay = tradesByDay();
+  const gridStart = startOfWeek(new Date(year, month, 1));
+  const todayIso = todayISO();
+  let monthPnl = 0, green = 0, red = 0;
+
+  const dows = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  let html = `<div class="grid grid-cols-7 gap-px bg-line border border-line rounded-xl overflow-hidden">`;
+  html += dows.map(d=>`<div class="bg-panel2 text-center text-[11px] uppercase tracking-wide text-faint py-2">${d}</div>`).join('');
+  for (let i=0;i<42;i++){
+    const d = new Date(gridStart); d.setDate(gridStart.getDate()+i);
+    const iso = ymd(d);
+    const inMonth = d.getMonth()===month;
+    const day = byDay[iso];
+    const isToday = iso===todayIso;
+    if (inMonth && day){ monthPnl += day.pnl; if (day.pnl>0) green++; else if (day.pnl<0) red++; }
+    let cellBg = 'bg-panel', pnlHtml = '';
+    if (day && inMonth){
+      cellBg = day.pnl>0 ? 'bg-profit/10' : day.pnl<0 ? 'bg-loss/10' : 'bg-panel';
+      const c = day.pnl>0 ? 'text-profit' : day.pnl<0 ? 'text-loss' : 'text-muted';
+      pnlHtml = `<div class="num text-[11px] font-semibold ${c} mt-1 truncate">${fmtMoney(day.pnl)}</div>
+        <div class="text-[9px] text-faint">${day.count} trade${day.count>1?'s':''}</div>`;
+    }
+    html += `<div class="${cellBg} min-h-[68px] p-1.5 ${inMonth?'':'opacity-40'}">
+        <div class="text-xs num ${isToday?'text-gold font-semibold':'text-muted'}">${d.getDate()}</div>
+        ${pnlHtml}
+      </div>`;
+  }
+  html += `</div>`;
+  document.getElementById('tcBody').innerHTML = html;
+
+  document.getElementById('tcStat1Label').textContent = 'Month P&L';
+  document.getElementById('tcStat2Label').textContent = 'Green days';
+  document.getElementById('tcStat3Label').textContent = 'Red days';
+  const s1 = document.getElementById('tcStat1');
+  s1.textContent = fmtMoney(monthPnl);
+  s1.className = 'num font-semibold ' + (monthPnl>0?'text-profit':monthPnl<0?'text-loss':'');
+  document.getElementById('tcStat2').textContent = green;
+  document.getElementById('tcStat3').textContent = red;
+}
+function renderTradeCalYear(){
+  const year = state.tradeCalAnchor.getFullYear();
+  document.getElementById('tcLabel').textContent = String(year);
+
+  const byMonth = Array.from({length:12}, ()=>({ pnl:0, count:0 }));
+  state.trades.forEach(t=>{
+    if (t.pnl===null || t.pnl===undefined) return;
+    const d = new Date(t.date + 'T00:00:00');
+    if (d.getFullYear()!==year) return;
+    byMonth[d.getMonth()].pnl += t.pnl; byMonth[d.getMonth()].count++;
+  });
+  let yearPnl = 0, green = 0, red = 0;
+  const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  let html = `<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">`;
+  for (let m=0;m<12;m++){
+    const mm = byMonth[m];
+    yearPnl += mm.pnl;
+    if (mm.pnl>0) green++; else if (mm.pnl<0) red++;
+    const c = mm.pnl>0 ? 'text-profit' : mm.pnl<0 ? 'text-loss' : 'text-muted';
+    const hover = mm.pnl>0 ? 'hover:border-profit/40' : mm.pnl<0 ? 'hover:border-loss/40' : 'hover:border-gold/40';
+    html += `<button class="tc-month-card bg-panel2 border border-line rounded-xl p-4 text-left ${hover} transition" data-month="${m}">
+        <div class="text-sm font-semibold">${names[m]}</div>
+        <div class="num text-lg font-semibold mt-1 ${c}">${mm.count?fmtMoney(mm.pnl):'—'}</div>
+        <div class="text-[10px] text-faint mt-0.5">${mm.count} trade${mm.count===1?'':'s'}</div>
+      </button>`;
+  }
+  html += `</div>`;
+  const body = document.getElementById('tcBody');
+  body.innerHTML = html;
+  body.querySelectorAll('.tc-month-card').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      state.tradeCalAnchor = new Date(year, parseInt(btn.dataset.month,10), 1);
+      state.tradeCalMode = 'month';
+      renderTradeCalendar();
+    });
+  });
+
+  document.getElementById('tcStat1Label').textContent = 'Year P&L';
+  document.getElementById('tcStat2Label').textContent = 'Green months';
+  document.getElementById('tcStat3Label').textContent = 'Red months';
+  const s1 = document.getElementById('tcStat1');
+  s1.textContent = fmtMoney(yearPnl);
+  s1.className = 'num font-semibold ' + (yearPnl>0?'text-profit':yearPnl<0?'text-loss':'');
+  document.getElementById('tcStat2').textContent = green;
+  document.getElementById('tcStat3').textContent = red;
 }
 function renderEquityChart(){
   const ctx = document.getElementById('dashEquityChart');
@@ -1229,8 +1375,14 @@ function renderBtEquityChart(st){
 function renderBtTradeList(strat){
   const list = document.getElementById('btTradeList');
   const empty = document.getElementById('btTradeEmpty');
-  const trades = (strat.trades || []).slice().sort((a,b)=> (b.date||'').localeCompare(a.date||''));
+  const dateFilter = document.getElementById('btFilterDate').value;
+  const trades = (strat.trades || [])
+    .filter(t=> !dateFilter || t.date===dateFilter)
+    .slice().sort((a,b)=> (b.date||'').localeCompare(a.date||''));
   empty.classList.toggle('hidden', trades.length>0);
+  empty.textContent = dateFilter && !trades.length
+    ? 'No simulated trades on this date.'
+    : 'No trades yet — add simulated trades to test this strategy.';
   list.innerHTML = trades.map(t=>{
     const pnl = btTradePnl(t, strat);
     const pnlClass = pnl>0?'text-profit':pnl<0?'text-loss':'text-muted';
@@ -1365,6 +1517,16 @@ function bindBacktestControls(){
   document.getElementById('btTradeSaveBtn').addEventListener('click', saveBtTrade);
   document.getElementById('btTradeDeleteBtn').addEventListener('click', deleteBtTrade);
   document.getElementById('btResultType').addEventListener('change', syncBtResultType);
+  const rerunBtList = ()=>{
+    const strat = state.backtests.find(s=>s.id===state.selectedBacktestId);
+    if (strat) renderBtTradeList(strat);
+  };
+  document.getElementById('btFilterDate').addEventListener('input', rerunBtList);
+  document.getElementById('btFilterDate').addEventListener('change', rerunBtList);
+  document.getElementById('btFilterDateClear').addEventListener('click', ()=>{
+    document.getElementById('btFilterDate').value = '';
+    rerunBtList();
+  });
 }
 
 /* ================================================================

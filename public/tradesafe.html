@@ -230,6 +230,31 @@
             <div id="dashNews" class="space-y-2"></div>
           </div>
         </div>
+
+        <!-- Trade Calendar -->
+        <div class="bg-panel border border-line rounded-xl p-5 mt-4">
+          <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <h2 class="font-display font-semibold">Trade Calendar</h2>
+            <div class="flex flex-wrap items-center gap-2">
+              <div class="flex rounded-lg border border-line overflow-hidden">
+                <button id="tcModeMonth" data-mode="month" class="tc-mode px-3 py-1.5 text-xs text-muted">Month</button>
+                <button id="tcModeYear" data-mode="year" class="tc-mode px-3 py-1.5 text-xs border-l border-line text-muted">Year</button>
+              </div>
+              <div class="flex items-center gap-1">
+                <button id="tcPrev" class="w-8 h-8 rounded-lg border border-line text-muted hover:border-gold/40" aria-label="Previous period">&lsaquo;</button>
+                <span id="tcLabel" class="text-sm font-medium min-w-[130px] text-center"></span>
+                <button id="tcNext" class="w-8 h-8 rounded-lg border border-line text-muted hover:border-gold/40" aria-label="Next period">&rsaquo;</button>
+                <button id="tcToday" class="btn-ghost text-xs ml-1">Today</button>
+              </div>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-x-6 gap-y-1 mb-4 text-xs text-muted">
+            <div><span id="tcStat1Label">Month P&amp;L</span>: <span id="tcStat1" class="num font-semibold">—</span></div>
+            <div><span id="tcStat2Label">Green days</span>: <span id="tcStat2" class="num text-profit font-semibold">0</span></div>
+            <div><span id="tcStat3Label">Red days</span>: <span id="tcStat3" class="num text-loss font-semibold">0</span></div>
+          </div>
+          <div id="tcBody"></div>
+        </div>
       </section>
 
       <!-- ============ RISK SIZER ============ -->
@@ -370,7 +395,7 @@
         </div>
 
         <!-- Filters -->
-        <div class="grid sm:grid-cols-3 gap-3 mb-4">
+        <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
           <input id="filterSearch" type="text" placeholder="Search instrument, setup, tags…" />
           <select id="filterResult">
             <option value="all">All results</option>
@@ -381,6 +406,10 @@
           <select id="filterInstrument">
             <option value="all">All instruments</option>
           </select>
+          <div class="flex items-center gap-2">
+            <input id="filterDate" type="date" class="flex-1" title="Filter by date" />
+            <button id="filterDateClear" class="btn-ghost text-xs px-2 shrink-0" title="Clear date filter">Clear</button>
+          </div>
         </div>
 
         <div id="tradeList" class="space-y-2"></div>
@@ -503,9 +532,13 @@
 
               <!-- Simulated trades -->
               <div class="bg-panel border border-line rounded-xl p-5">
-                <div class="flex items-center justify-between mb-4">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
                   <h3 class="font-display font-semibold text-sm">Simulated Trades</h3>
-                  <button id="btAddTradeBtn" class="btn-ghost text-sm">+ Add Trade</button>
+                  <div class="flex items-center gap-2">
+                    <input id="btFilterDate" type="date" class="text-sm" title="Filter by date" />
+                    <button id="btFilterDateClear" class="btn-ghost text-xs px-2" title="Clear date filter">Clear</button>
+                    <button id="btAddTradeBtn" class="btn-ghost text-sm">+ Add Trade</button>
+                  </div>
                 </div>
                 <div id="btTradeList" class="space-y-2"></div>
                 <div id="btTradeEmpty" class="text-center text-muted py-10 text-sm">No trades yet — add simulated trades to test this strategy.</div>
@@ -687,6 +720,6 @@
   <!-- TOAST -->
   <div id="toast" class="hidden fixed bottom-20 lg:bottom-6 left-1/2 -translate-x-1/2 z-[60] bg-panel2 border border-gold/40 text-sm px-4 py-2.5 rounded-lg shadow-lg"></div>
 
-  <script src="/tradesafe.js?v=8"></script>
+  <script src="/tradesafe.js?v=9"></script>
 </body>
 </html>
