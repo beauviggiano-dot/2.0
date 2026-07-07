@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { authClient } from '@/lib/auth-client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,7 +9,6 @@ import { Label } from '@/components/ui/label'
 import { Card } from '@/components/ui/card'
 
 export function AuthForm({ mode }: { mode: 'sign-in' | 'sign-up' }) {
-  const router = useRouter()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -35,8 +33,10 @@ export function AuthForm({ mode }: { mode: 'sign-in' | 'sign-up' }) {
       return
     }
 
-    router.push('/app')
-    router.refresh()
+    // /app is a Route Handler that serves raw HTML, not a React page, so a soft
+    // client-side navigation (router.push) can't reach it. Force a full page
+    // load so the browser actually requests the handler with the new session.
+    window.location.href = '/app'
   }
 
   return (
