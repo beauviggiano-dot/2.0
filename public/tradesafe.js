@@ -299,7 +299,7 @@ function calcSizer(){
   if (inst.category==='futures' || inst.category==='options'){
     const ticks = inst.tickSize>0 ? stopDist / inst.tickSize : 0;
     riskPerUnit = ticks * inst.tickValue;
-    size = riskPerUnit>0 ? Math.floor(riskDollar / riskPerUnit) : 0;
+    size = riskPerUnit>0 ? Math.floor((riskDollar / riskPerUnit)*10)/10 : 0;
     sizeLabel = 'Contracts';
     sizeSub = riskPerUnit>0 ? `${fmtMoney(riskPerUnit)} risk / contract` : '';
   } else if (inst.category==='forex'){
@@ -310,7 +310,7 @@ function calcSizer(){
     sizeSub = riskPerUnit>0 ? `${fmtMoney(riskPerUnit)} risk / lot · ${fmtNum(lots*100,0)} micro-lots` : '';
   }
 
-  document.getElementById('resultSize').textContent = inst.category==='forex' ? fmtNum(size,2) : fmtNum(size,0);
+  document.getElementById('resultSize').textContent = inst.category==='forex' ? fmtNum(size,2) : fmtNum(size,1);
   document.getElementById('sizeLabel').textContent = sizeLabel;
   document.getElementById('resultSizeSub').textContent = sizeSub;
 
