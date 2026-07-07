@@ -320,7 +320,9 @@ function calcSizer(){
   const entry = parseFloat(document.getElementById('entryPrice').value);
   const target = parseFloat(document.getElementById('targetPrice').value);
 
-  const riskDollar = state.riskMode==='percent' ? (state.account * riskInput/100) : riskInput;
+  // Size risk off the true current balance (starting balance + realized P&L).
+  const balance = currentBalance();
+  const riskDollar = state.riskMode==='percent' ? (balance * riskInput/100) : riskInput;
 
   // User-selected rounding precision (0, 1, or 2 decimals). Always truncate
   // down so we never round up into more risk than the trader intended.
@@ -349,7 +351,7 @@ function calcSizer(){
 
   const actualDollarRisk = size * riskPerUnit;
   document.getElementById('resultDollarRisk').textContent = fmtMoney(actualDollarRisk);
-  document.getElementById('resultPercentAccount').textContent = state.account>0 ? ((actualDollarRisk/state.account)*100).toFixed(2)+'%' : '—';
+  document.getElementById('resultPercentAccount').textContent = balance>0 ? ((actualDollarRisk/balance)*100).toFixed(2)+'%' : '—';
 
   // stop price
   let stopPrice = null;
@@ -373,7 +375,7 @@ function calcSizer(){
   const warnEl = document.getElementById('ticketWarning');
   let warn = '';
   if (size<=0 && riskDollar>0 && stopDist>0) warn = 'Size rounds to zero — stop distance is too wide for this risk amount, or risk is too small. Widen your risk or tighten the stop.';
-  else if (state.account>0 && (actualDollarRisk/state.account) > 0.05) warn = `This risks ${((actualDollarRisk/state.account)*100).toFixed(1)}% of your account — most trading plans cap single-trade risk at 1–2%.`;
+  else if (balance>0 && (actualDollarRisk/balance) > 0.05) warn = `This risks ${((actualDollarRisk/balance)*100).toFixed(1)}% of your account — most trading plans cap single-trade risk at 1–2%.`;
   if (warn){ warnEl.textContent = warn; warnEl.classList.remove('hidden'); } else { warnEl.classList.add('hidden'); }
 
   document.getElementById('ticketTime').textContent = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
@@ -407,16 +409,35 @@ document.getElementById('logTradeBtn').addEventListener('click', ()=>{
 /* ================================================================
    ACCOUNT MODAL
    ================================================================ */
+// Sum of all realized (closed) journal P&L. Open trades (pnl===null) don't count.
+function realizedPnl(){
+  return state.trades.reduce((s,t)=> s + (t.pnl || 0), 0);
+}
+// True account balance = starting balance + realized journal P&L.
+function currentBalance(){
+  return state.account + realizedPnl();
+}
 function refreshAccountDisplays(){
-  document.getElementById('sidebarAccount').textContent = fmtMoney(state.account);
-  document.getElementById('mobileAccountBtn').textContent = '$'+Math.round(state.account).toLocaleString();
+  const bal = currentBalance();
+  document.getElementById('sidebarAccount').textContent = fmtMoney(bal);
+  document.getElementById('mobileAccountBtn').textContent = '$'+Math.round(bal).toLocaleString();
 }
 document.getElementById('openAccountBtn').addEventListener('click', openAccountModal);
 document.getElementById('mobileAccountBtn').addEventListener('click', openAccountModal);
 function openAccountModal(){
   document.getElementById('accountBalanceInput').value = state.account;
+  updateAccountModalSummary();
   document.getElementById('accountModal').classList.remove('hidden');
 }
+function updateAccountModalSummary(){
+  const start = parseFloat(document.getElementById('accountBalanceInput').value);
+  const base = isNaN(start) ? state.account : start;
+  const pnl = realizedPnl();
+  document.getElementById('accountRealizedPnl').textContent = (pnl>=0?'+':'') + fmtMoney(pnl);
+  document.getElementById('accountRealizedPnl').className = 'num font-semibold ' + (pnl>0?'text-profit':pnl<0?'text-loss':'text-muted');
+  document.getElementById('accountCurrentBalance').textContent = fmtMoney(base + pnl);
+}
+document.getElementById('accountBalanceInput').addEventListener('input', updateAccountModalSummary);
 document.getElementById('accountCancelBtn').addEventListener('click', ()=> document.getElementById('accountModal').classList.add('hidden'));
 document.getElementById('accountSaveBtn').addEventListener('click', ()=>{
   const v = parseFloat(document.getElementById('accountBalanceInput').value);
@@ -526,6 +547,8 @@ document.getElementById('tradeSaveBtn').addEventListener('click', ()=>{
   }
   save(LS.trades, state.trades);
   closeTradeModal();
+  refreshAccountDisplays();
+  calcSizer();
   renderJournal();
   renderDashboard();
   toast('Journal entry saved.');
@@ -536,6 +559,8 @@ document.getElementById('tradeDeleteBtn').addEventListener('click', ()=>{
   state.trades = state.trades.filter(t=>t.id!==state.editingTradeId);
   save(LS.trades, state.trades);
   closeTradeModal();
+  refreshAccountDisplays();
+  calcSizer();
   renderJournal();
   renderDashboard();
   toast('Entry deleted.');

@@ -623,9 +623,14 @@
   <!-- ============ ACCOUNT MODAL ============ -->
   <div id="accountModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
     <div class="bg-panel border border-line rounded-2xl w-full max-w-sm p-6">
-      <h2 class="font-display font-semibold text-lg mb-4">Account Balance</h2>
-      <label class="fld">Balance (USD)</label>
+      <h2 class="font-display font-semibold text-lg mb-1">Account Balance</h2>
+      <p class="text-xs text-muted mb-4">Your live balance tracks your journal automatically. Set your starting balance and every logged trade&apos;s P&amp;L is added on top.</p>
+      <label class="fld">Starting Balance (USD)</label>
       <input id="accountBalanceInput" type="number" step="any" />
+      <div class="mt-4 rounded-xl border border-line bg-panel2 p-3 space-y-1.5 text-sm">
+        <div class="flex items-center justify-between"><span class="text-muted">Realized journal P&amp;L</span><span id="accountRealizedPnl" class="num font-semibold text-muted">—</span></div>
+        <div class="flex items-center justify-between border-t border-line pt-1.5"><span class="text-faint uppercase text-[11px] tracking-wide">Current balance</span><span id="accountCurrentBalance" class="num font-semibold text-gold text-base">—</span></div>
+      </div>
       <div class="flex justify-end gap-2 mt-5">
         <button id="accountCancelBtn" class="btn-ghost text-sm">Cancel</button>
         <button id="accountSaveBtn" class="btn-gold text-sm">Save</button>
@@ -777,6 +782,6 @@
   <!-- TOAST -->
   <div id="toast" class="hidden fixed bottom-20 lg:bottom-6 left-1/2 -translate-x-1/2 z-[60] bg-panel2 border border-gold/40 text-sm px-4 py-2.5 rounded-lg shadow-lg"></div>
 
-  <script src="/tradesafe.js?v=13"></script>
+  <script src="/tradesafe.js?v=14"></script>
 </body>
 </html>
