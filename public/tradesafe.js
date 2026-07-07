@@ -1226,6 +1226,21 @@ function renderTradeCalendar(){
   });
   if (state.tradeCalMode==='year') renderTradeCalYear();
   else renderTradeCalMonth();
+  renderTradeCalWeek();
+}
+// Always reflects the current (real-world) week, regardless of the calendar view.
+function renderTradeCalWeek(){
+  const byDay = tradesByDay();
+  const weekStart = startOfWeek(new Date());
+  let weekPnl = 0;
+  for (let i=0;i<7;i++){
+    const d = new Date(weekStart); d.setDate(weekStart.getDate()+i);
+    const day = byDay[ymd(d)];
+    if (day) weekPnl += day.pnl;
+  }
+  const el = document.getElementById('tcWeekPnl');
+  el.textContent = fmtMoney(weekPnl);
+  el.className = 'num sensitive font-semibold ' + (weekPnl>0?'text-profit':weekPnl<0?'text-loss':'');
 }
 function renderTradeCalMonth(){
   const anchor = state.tradeCalAnchor;
