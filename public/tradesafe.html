@@ -217,6 +217,42 @@
           </div>
         </div>
 
+        <!-- Average Risk : Reward -->
+        <div class="bg-panel border border-line rounded-xl p-5 mb-6">
+          <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <div>
+              <h2 class="font-display font-semibold">Average Risk : Reward</h2>
+              <p class="text-xs text-muted mt-0.5">Realized reward per 1 unit of risk (closed trades)</p>
+            </div>
+            <div class="flex rounded-lg border border-line overflow-hidden">
+              <button data-rr="week" class="rr-period px-3 py-1.5 text-xs text-muted">Weekly</button>
+              <button data-rr="month" class="rr-period px-3 py-1.5 text-xs border-l border-line text-muted">Monthly</button>
+              <button data-rr="year" class="rr-period px-3 py-1.5 text-xs border-l border-line text-muted">Yearly</button>
+              <button data-rr="all" class="rr-period px-3 py-1.5 text-xs border-l border-line text-muted">All time</button>
+            </div>
+          </div>
+          <div class="flex flex-wrap items-end gap-x-8 gap-y-3">
+            <div>
+              <div id="rrValue" class="num sensitive font-display text-3xl font-semibold">—</div>
+              <div id="rrPeriodLabel" class="text-xs text-faint mt-1">This month</div>
+            </div>
+            <div class="flex gap-6 text-sm">
+              <div>
+                <div class="text-[11px] uppercase tracking-wide text-faint">Avg win</div>
+                <div id="rrAvgWin" class="num sensitive text-profit font-semibold">—</div>
+              </div>
+              <div>
+                <div class="text-[11px] uppercase tracking-wide text-faint">Avg loss</div>
+                <div id="rrAvgLoss" class="num sensitive text-loss font-semibold">—</div>
+              </div>
+              <div>
+                <div class="text-[11px] uppercase tracking-wide text-faint">Trades</div>
+                <div id="rrCount" class="num font-semibold">0</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="grid lg:grid-cols-3 gap-4">
           <div class="lg:col-span-2 bg-panel border border-line rounded-xl p-5">
             <h2 class="font-display font-semibold mb-4">Equity Curve</h2>
@@ -728,6 +764,6 @@
   <!-- TOAST -->
   <div id="toast" class="hidden fixed bottom-20 lg:bottom-6 left-1/2 -translate-x-1/2 z-[60] bg-panel2 border border-gold/40 text-sm px-4 py-2.5 rounded-lg shadow-lg"></div>
 
-  <script src="/tradesafe.js?v=10"></script>
+  <script src="/tradesafe.js?v=11"></script>
 </body>
 </html>

@@ -75,6 +75,7 @@ const LS = {
   backtests: 'ts_backtests',
   sizePrecision: 'ts_size_precision',
   privacy: 'ts_privacy',
+  rrPeriod: 'ts_rr_period',
 };
 function load(key, fallback){ try{ const v = localStorage.getItem(key); return v===null? fallback : JSON.parse(v); }catch(e){ return fallback; } }
 function save(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){ console.error('Storage failed', e); } }
@@ -91,6 +92,7 @@ let state = {
   riskMode: 'dollar', // or 'percent'
   sizePrecision: load(LS.sizePrecision, 1), // decimals for position size: 0, 1, or 2
   privacy: load(LS.privacy, false), // blur P&L values on the dashboard
+  rrPeriod: load(LS.rrPeriod, 'month'), // avg R:R window: week, month, year, all
   direction: 'long',
   catFilter: 'all',
   editingTradeId: null,
@@ -1053,6 +1055,69 @@ document.getElementById('privacyToggle').addEventListener('click', ()=>{
   applyPrivacy();
 });
 
+/* ---------- Average Risk:Reward ---------- */
+const RR_META = {
+  week:  { label: 'This week',  start: ()=> startOfWeek(new Date()) },
+  month: { label: 'This month', start: ()=> { const d=new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); } },
+  year:  { label: 'This year',  start: ()=> { const d=new Date(); return new Date(d.getFullYear(), 0, 1); } },
+  all:   { label: 'All time',   start: ()=> null },
+};
+let _rrBound = false;
+function bindAvgRR(){
+  if (_rrBound) return; _rrBound = true;
+  document.querySelectorAll('.rr-period').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      state.rrPeriod = btn.dataset.rr;
+      save(LS.rrPeriod, state.rrPeriod);
+      renderAvgRR();
+    });
+  });
+}
+function renderAvgRR(){
+  bindAvgRR();
+  const period = RR_META[state.rrPeriod] ? state.rrPeriod : 'month';
+  const meta = RR_META[period];
+  const start = meta.start();
+
+  document.querySelectorAll('.rr-period').forEach(btn=>{
+    const active = btn.dataset.rr===period;
+    btn.classList.toggle('bg-gold/10', active);
+    btn.classList.toggle('text-gold', active);
+    btn.classList.toggle('font-medium', active);
+    btn.classList.toggle('text-muted', !active);
+  });
+
+  // Only closed trades with a valid R multiple (needs both risk and pnl).
+  const rs = state.trades
+    .filter(t=> t.rMultiple!==null && t.rMultiple!==undefined && (!start || new Date(t.date+'T00:00:00') >= start))
+    .map(t=> t.rMultiple);
+
+  document.getElementById('rrPeriodLabel').textContent = meta.label;
+  document.getElementById('rrCount').textContent = rs.length;
+
+  const valEl = document.getElementById('rrValue');
+  const winEl = document.getElementById('rrAvgWin');
+  const lossEl = document.getElementById('rrAvgLoss');
+
+  if (!rs.length){
+    valEl.textContent = '—';
+    valEl.className = 'num sensitive font-display text-3xl font-semibold';
+    winEl.textContent = '—';
+    lossEl.textContent = '—';
+    return;
+  }
+
+  const avg = rs.reduce((s,r)=>s+r,0) / rs.length;
+  const wins = rs.filter(r=>r>0), losses = rs.filter(r=>r<0);
+  const avgWin = wins.length ? wins.reduce((s,r)=>s+r,0)/wins.length : null;
+  const avgLoss = losses.length ? losses.reduce((s,r)=>s+r,0)/losses.length : null;
+
+  valEl.textContent = '1 : ' + avg.toFixed(2);
+  valEl.className = 'num sensitive font-display text-3xl font-semibold ' + (avg>0?'text-profit':avg<0?'text-loss':'');
+  winEl.textContent = avgWin!==null ? '1 : ' + avgWin.toFixed(2) : '—';
+  lossEl.textContent = avgLoss!==null ? '1 : ' + Math.abs(avgLoss).toFixed(2) : '—';
+}
+
 function renderDashboard(){
   document.getElementById('todayDate').textContent = new Date().toLocaleDateString(undefined,{weekday:'long', month:'long', day:'numeric'});
   const hr = new Date().getHours();
@@ -1107,6 +1172,7 @@ function renderDashboard(){
     btn.addEventListener('click', ()=>{ setView('sizer'); selectInstrument(btn.dataset.sym); });
   });
 
+  renderAvgRR();
   renderEquityChart();
   renderTradeCalendar();
 }
