@@ -49,6 +49,44 @@ function eventId(it: FeedItem): string {
   return `ff_${(hash >>> 0).toString(36)}`
 }
 
+// Only refetch the upstream feed this often. The feed only holds the current
+// week and changes infrequently, so hammering it on every request just gets us
+// rate limited (HTTP 429). Everything else is served from the DB.
+const SYNC_INTERVAL_MS = 15 * 60 * 1000 // 15 minutes
+
+// In-memory guards to collapse bursts (e.g. the UI loading 3 months at once)
+// within a single warm instance.
+let lastSyncAt = 0
+let inFlight: Promise<void> | null = null
+
+// Has the feed been synced recently enough (checked against the DB so the
+// throttle survives cold starts and works across instances)?
+async function isFresh(): Promise<boolean> {
+  if (Date.now() - lastSyncAt < SYNC_INTERVAL_MS) return true
+  const rows = (await sql`
+    SELECT EXTRACT(EPOCH FROM MAX(updated_at)) * 1000 AS last_ms
+    FROM calendar_events
+  `) as { last_ms: number | null }[]
+  const lastMs = rows[0]?.last_ms ? Number(rows[0].last_ms) : 0
+  if (lastMs) lastSyncAt = lastMs
+  return Date.now() - lastMs < SYNC_INTERVAL_MS
+}
+
+// Throttled entry point: skips the network call when data is still fresh and
+// dedupes concurrent syncs within the same instance.
+async function maybeSyncCurrentWeek(): Promise<void> {
+  if (await isFresh()) return
+  if (inFlight) return inFlight
+  inFlight = syncCurrentWeek()
+    .then(() => {
+      lastSyncAt = Date.now()
+    })
+    .finally(() => {
+      inFlight = null
+    })
+  return inFlight
+}
+
 // Pull the current week from the feed and upsert into the DB.
 async function syncCurrentWeek(): Promise<void> {
   const res = await fetch(FF_FEED, {
@@ -86,7 +124,7 @@ export async function GET(request: Request) {
 
   let syncError: string | null = null
   try {
-    await syncCurrentWeek()
+    await maybeSyncCurrentWeek()
   } catch (err) {
     // Non-fatal: still serve whatever history is already stored.
     syncError = err instanceof Error ? err.message : "sync failed"
