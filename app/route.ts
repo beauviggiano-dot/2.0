@@ -67,10 +67,8 @@ function gateHtml(result: Exclude<AccessResult, { state: "ok" }>): string {
     body = "We couldn't verify your access. Please refresh, or contact support if this continues."
   }
 
-  const detail =
-    result.state === "error" && result.detail
-      ? `<p class="detail">${escapeHtml(result.detail)}</p>`
-      : ""
+  const detailText = "detail" in result ? result.detail : ""
+  const detail = detailText ? `<p class="detail">${escapeHtml(detailText)}</p>` : ""
 
   return `<!doctype html>
 <html lang="en">

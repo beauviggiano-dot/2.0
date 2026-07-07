@@ -25,8 +25,8 @@ export function getWhopConfig() {
 
 export type AccessResult =
   | { state: "ok"; userId: string }
-  | { state: "no_token" }
-  | { state: "no_access"; userId: string }
+  | { state: "no_token"; detail: string }
+  | { state: "no_access"; userId: string; detail: string }
   | { state: "error"; detail: string }
 
 // The single source of truth for "is this visitor allowed to use the app?".
@@ -36,10 +36,22 @@ export async function resolveAccess(headerList: Headers): Promise<AccessResult> 
     return { state: "error", detail: `Whop is not configured. Missing: ${missing.join(", ")}.` }
   }
 
+  // Diagnostic: list any Whop-injected headers so we can tell whether Whop's
+  // proxy is actually forwarding the auth token to this app.
+  const whopHeaders = [...headerList.keys()].filter((k) => k.startsWith("x-whop"))
+  const headerSummary = whopHeaders.length ? whopHeaders.join(", ") : "none"
+  const appIdHint = appId ? `${appId.slice(0, 10)}…` : "unset"
+
   // 1. Verify the Whop-injected user token. `dontThrow` makes it return null
   //    (instead of throwing) when the header is absent or the token is invalid,
   //    which is exactly what happens if someone opens the app outside Whop.
   const token = headerList.get("x-whop-user-token")
+  if (!token) {
+    return {
+      state: "no_token",
+      detail: `No x-whop-user-token header. Whop headers seen: ${headerSummary}. App: ${appIdHint}`,
+    }
+  }
   let userId: string | null = null
   try {
     const payload = await verifyUserToken(token, { appId: appId!, dontThrow: true })
@@ -48,7 +60,12 @@ export async function resolveAccess(headerList: Headers): Promise<AccessResult> 
     console.log("[v0] verifyUserToken failed:", err instanceof Error ? err.message : err)
     userId = null
   }
-  if (!userId) return { state: "no_token" }
+  if (!userId) {
+    return {
+      state: "no_token",
+      detail: `Token present but failed verification (app ${appIdHint}). Check NEXT_PUBLIC_WHOP_APP_ID matches the installed app.`,
+    }
+  }
 
   // 2. Check the user owns the required product using the app's API key.
   try {
@@ -58,7 +75,7 @@ export async function resolveAccess(headerList: Headers): Promise<AccessResult> 
       userId,
     })
     if (result?.hasAccess) return { state: "ok", userId }
-    return { state: "no_access", userId }
+    return { state: "no_access", userId, detail: `User ${userId} lacks access to ${productId}.` }
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err)
     console.log("[v0] access check failed:", detail)
