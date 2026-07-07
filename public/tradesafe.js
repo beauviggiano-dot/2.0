@@ -289,7 +289,7 @@ function setDirection(dir){
 document.getElementById('dirLong').addEventListener('click', ()=>{ setDirection('long'); calcSizer(); });
 document.getElementById('dirShort').addEventListener('click', ()=>{ setDirection('short'); calcSizer(); });
 
-['riskValue','stopDistance','entryPrice','targetPrice'].forEach(id=>{
+['riskValue','stopDistance'].forEach(id=>{
   document.getElementById(id).addEventListener('input', calcSizer);
 });
 
@@ -317,8 +317,6 @@ function calcSizer(){
   const inst = state.selected;
   const riskInput = parseFloat(document.getElementById('riskValue').value) || 0;
   const stopDist = parseFloat(document.getElementById('stopDistance').value) || 0;
-  const entry = parseFloat(document.getElementById('entryPrice').value);
-  const target = parseFloat(document.getElementById('targetPrice').value);
 
   // Size risk off the true current balance (starting balance + realized P&L).
   const balance = currentBalance();
@@ -353,24 +351,6 @@ function calcSizer(){
   document.getElementById('resultDollarRisk').textContent = fmtMoney(actualDollarRisk);
   document.getElementById('resultPercentAccount').textContent = balance>0 ? ((actualDollarRisk/balance)*100).toFixed(2)+'%' : '—';
 
-  // stop price
-  let stopPrice = null;
-  if (!isNaN(entry)){
-    const unitSize = inst.category==='forex' ? inst.pipSize : 1; // stopDist already in "points" for futures/options (price units)
-    const distanceInPrice = inst.category==='forex' ? stopDist*inst.pipSize : stopDist;
-    stopPrice = state.direction==='long' ? entry - distanceInPrice : entry + distanceInPrice;
-  }
-  document.getElementById('resultStopPrice').textContent = stopPrice!==null ? fmtNum(stopPrice, inst.category==='forex'?5:2) : '—';
-
-  // R:R
-  let rr = null;
-  if (!isNaN(entry) && !isNaN(target) && stopPrice!==null){
-    const risk = Math.abs(entry-stopPrice);
-    const reward = Math.abs(target-entry);
-    if (risk>0) rr = reward/risk;
-  }
-  document.getElementById('resultRR').textContent = rr!==null ? '1 : '+rr.toFixed(2) : '—';
-
   // warnings
   const warnEl = document.getElementById('ticketWarning');
   let warn = '';
@@ -380,7 +360,7 @@ function calcSizer(){
 
   document.getElementById('ticketTime').textContent = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
 
-  lastSizerResult = { inst, riskDollar: actualDollarRisk, size, sizeLabel, entry: isNaN(entry)?null:entry, stopPrice, target: isNaN(target)?null:target, direction: state.direction, rr };
+  lastSizerResult = { inst, riskDollar: actualDollarRisk, size, sizeLabel, direction: state.direction };
 }
 
 document.getElementById('saveDefaultBtn').addEventListener('click', ()=>{
@@ -398,10 +378,8 @@ document.getElementById('logTradeBtn').addEventListener('click', ()=>{
   openTradeModal(null, {
     instrument: lastSizerResult.inst.symbol,
     direction: lastSizerResult.direction==='long'?'Long':'Short',
-    entry: lastSizerResult.entry,
     size: lastSizerResult.size,
     risk: Math.round(lastSizerResult.riskDollar*100)/100,
-    stopPrice: lastSizerResult.stopPrice,
   });
   setView('journal');
 });
