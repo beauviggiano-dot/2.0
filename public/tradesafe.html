@@ -758,12 +758,13 @@
       <div class="grid sm:grid-cols-2 gap-4">
         <div><label class="fld">Date</label><input id="btDate" type="date" /></div>
         <div><label class="fld">Instrument</label><input id="btInstrument" type="text" placeholder="e.g. ES" /></div>
-        <div><label class="fld">Direction</label><select id="btDirection"><option>Long</option><option>Short</option></select></div>
-        <div><label class="fld">Result type</label><select id="btResultType"><option value="dollar">Dollar P&amp;L</option><option value="r">R-multiple</option></select></div>
+        <div><label class="fld">Direction</label><select id="btDirection"><option>Long</option><option>Short</option><option value="No trade">No trade</option></select></div>
+        <div id="btResultTypeWrap"><label class="fld">Result type</label><select id="btResultType"><option value="dollar">Dollar P&amp;L</option><option value="r">R-multiple</option></select></div>
         <div id="btDollarWrap"><label class="fld">P&amp;L ($)</label><input id="btPnl" type="number" step="any" placeholder="e.g. 250 or -100" /></div>
         <div id="btRWrap" class="hidden"><label class="fld">R-multiple</label><input id="btR" type="number" step="any" placeholder="e.g. 2 or -1" /></div>
+        <div id="btNoTradeNote" class="sm:col-span-2 hidden text-xs text-muted rounded-lg border border-line bg-panel2 px-3 py-2">Logging a no-trade day. It&apos;s recorded in your backtest journal but won&apos;t count toward total trades, win rate, or P&amp;L.</div>
         <div class="sm:col-span-2"><label class="fld">Notes</label><input id="btNotes" type="text" placeholder="Optional" /></div>
-        <div class="sm:col-span-2">
+        <div id="btBreakEvenWrap" class="sm:col-span-2">
           <label class="flex items-center gap-2 text-sm cursor-pointer select-none">
             <input id="btBreakEven" type="checkbox" class="w-4 h-4 accent-gold" />
             <span>Mark as break-even <span class="text-faint">— excluded from win/loss &amp; risk:reward</span></span>
@@ -783,6 +784,6 @@
   <!-- TOAST -->
   <div id="toast" class="hidden fixed bottom-20 lg:bottom-6 left-1/2 -translate-x-1/2 z-[60] bg-panel2 border border-gold/40 text-sm px-4 py-2.5 rounded-lg shadow-lg"></div>
 
-  <script src="/tradesafe.js?v=16"></script>
+  <script src="/tradesafe.js?v=17"></script>
 </body>
 </html>

@@ -1419,8 +1419,10 @@ function btStats(strategy){
   let equity = start, peak = start, maxDD = 0;
   let wins = 0, losses = 0, grossWin = 0, grossLoss = 0, net = 0;
   const curve = [{ label: 'Start', value: start }];
-  let breakEvens = 0;
+  let breakEvens = 0, noTrades = 0;
   trades.forEach((t,i)=>{
+    // No-trade days are journal-only: skip P&L, equity, and all trade counts.
+    if (t.noTrade){ noTrades++; return; }
     const pnl = btTradePnl(t, strategy);
     net += pnl; equity += pnl; // real dollars always count toward the curve
     // Break-even trades are excluded from win/loss & risk:reward stats.
@@ -1432,11 +1434,12 @@ function btStats(strategy){
     curve.push({ label: t.date || ('#'+(i+1)), value: equity });
   });
   const decided = wins + losses;
+  const count = trades.length - noTrades; // total trades excludes no-trade days
   return {
-    trades, count: trades.length, net, wins, losses, breakEvens,
+    trades, count, noTrades, net, wins, losses, breakEvens,
     winRate: decided ? (wins/decided)*100 : 0,
     profitFactor: grossLoss ? grossWin/grossLoss : (grossWin ? Infinity : 0),
-    expectancy: trades.length ? net/trades.length : 0,
+    expectancy: count ? net/count : 0,
     avgWin: wins ? grossWin/wins : 0,
     avgLoss: losses ? -grossLoss/losses : 0,
     maxDD, endEquity: equity, start, curve,
@@ -1532,13 +1535,15 @@ function renderBtTradeList(strat){
     : 'No trades yet — add simulated trades to test this strategy.';
   list.innerHTML = trades.map(t=>{
     const pnl = btTradePnl(t, strat);
-    const pnlClass = t.breakEven ? 'text-muted' : pnl>0?'text-profit':pnl<0?'text-loss':'text-muted';
-    const resultLabel = t.resultType==='r' ? `${t.r>0?'+':''}${fmtNum(t.r,2)}R` : fmtMoney(pnl);
+    const pnlClass = t.noTrade ? 'text-faint' : t.breakEven ? 'text-muted' : pnl>0?'text-profit':pnl<0?'text-loss':'text-muted';
+    const resultLabel = t.noTrade ? '—' : (t.resultType==='r' ? `${t.r>0?'+':''}${fmtNum(t.r,2)}R` : fmtMoney(pnl));
     const beBadge = t.breakEven ? `<span class="text-[10px] font-medium border border-line text-muted rounded px-1.5 py-0.5 shrink-0">BE</span>` : '';
+    const dirClass = t.noTrade ? 'text-faint' : t.direction==='Short'?'text-loss':'text-profit';
+    const dirLabel = t.noTrade ? 'No trade' : (t.direction || '');
     return `<button class="bt-trade-item w-full text-left bg-panel2 border border-line rounded-xl px-4 py-3 flex items-center gap-4 hover:border-goldSoft" data-id="${t.id}">
         <div class="w-24 text-xs num text-muted shrink-0">${t.date || '—'}</div>
         <div class="w-14 text-xs font-semibold shrink-0">${t.instrument || '—'}</div>
-        <div class="w-14 text-xs shrink-0 ${t.direction==='Short'?'text-loss':'text-profit'}">${t.direction || ''}</div>
+        <div class="w-16 text-xs shrink-0 ${dirClass}">${dirLabel}</div>
         <div class="flex-1 min-w-0 text-sm truncate text-muted">${t.notes || ''}</div>
         ${beBadge}
         <div class="num text-sm font-semibold shrink-0 ${pnlClass}">${resultLabel}</div>
@@ -1593,9 +1598,14 @@ function deleteStrategy(){
 
 /* ---------- Backtest trade modal ---------- */
 function syncBtResultType(){
+  const noTrade = document.getElementById('btDirection').value === 'No trade';
   const type = document.getElementById('btResultType').value;
-  document.getElementById('btDollarWrap').classList.toggle('hidden', type!=='dollar');
-  document.getElementById('btRWrap').classList.toggle('hidden', type!=='r');
+  // A no-trade day has no result — hide the P&L / R / break-even inputs entirely.
+  document.getElementById('btResultTypeWrap').classList.toggle('hidden', noTrade);
+  document.getElementById('btBreakEvenWrap').classList.toggle('hidden', noTrade);
+  document.getElementById('btNoTradeNote').classList.toggle('hidden', !noTrade);
+  document.getElementById('btDollarWrap').classList.toggle('hidden', noTrade || type!=='dollar');
+  document.getElementById('btRWrap').classList.toggle('hidden', noTrade || type!=='r');
 }
 function openBtTradeModal(id){
   const strat = state.backtests.find(s=>s.id===state.selectedBacktestId);
@@ -1619,16 +1629,20 @@ function closeBtTradeModal(){ document.getElementById('btTradeModal').classList.
 function saveBtTrade(){
   const strat = state.backtests.find(s=>s.id===state.selectedBacktestId);
   if (!strat) return;
+  const direction = document.getElementById('btDirection').value;
+  const noTrade = direction === 'No trade';
   const resultType = document.getElementById('btResultType').value;
   const trade = {
     id: state.editingBtTradeId || uid(),
     date: document.getElementById('btDate').value || todayISO(),
     instrument: document.getElementById('btInstrument').value.trim(),
-    direction: document.getElementById('btDirection').value,
+    direction,
+    noTrade,
     resultType,
-    pnl: resultType==='dollar' ? (parseFloat(document.getElementById('btPnl').value) || 0) : null,
-    r: resultType==='r' ? (parseFloat(document.getElementById('btR').value) || 0) : null,
-    breakEven: document.getElementById('btBreakEven').checked,
+    // No-trade days carry no P&L, R, or break-even result.
+    pnl: noTrade ? 0 : (resultType==='dollar' ? (parseFloat(document.getElementById('btPnl').value) || 0) : null),
+    r: noTrade ? null : (resultType==='r' ? (parseFloat(document.getElementById('btR').value) || 0) : null),
+    breakEven: noTrade ? false : document.getElementById('btBreakEven').checked,
     notes: document.getElementById('btNotes').value.trim(),
   };
   strat.trades = strat.trades || [];
@@ -1668,6 +1682,7 @@ function bindBacktestControls(){
   document.getElementById('btTradeSaveBtn').addEventListener('click', saveBtTrade);
   document.getElementById('btTradeDeleteBtn').addEventListener('click', deleteBtTrade);
   document.getElementById('btResultType').addEventListener('change', syncBtResultType);
+  document.getElementById('btDirection').addEventListener('change', syncBtResultType);
   const rerunBtList = ()=>{
     const strat = state.backtests.find(s=>s.id===state.selectedBacktestId);
     if (strat) renderBtTradeList(strat);
