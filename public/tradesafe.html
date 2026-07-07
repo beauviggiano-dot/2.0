@@ -659,6 +659,12 @@
             <button type="button" id="tPnlPlus" class="shrink-0 w-9 h-9 rounded-lg border border-line bg-panel2 text-profit text-lg leading-none hover:border-profit" aria-label="Increase P&amp;L">+</button>
           </div>
         </div>
+        <div class="sm:col-span-3">
+          <label class="flex items-center gap-2 text-sm cursor-pointer select-none">
+            <input id="tBreakEven" type="checkbox" class="w-4 h-4 accent-gold" />
+            <span>Mark as break-even <span class="text-faint">— excluded from average risk:reward</span></span>
+          </label>
+        </div>
       </div>
 
       <div class="mt-2.5 bg-panel2 border border-line rounded-xl p-3">
@@ -750,6 +756,12 @@
         <div id="btDollarWrap"><label class="fld">P&amp;L ($)</label><input id="btPnl" type="number" step="any" placeholder="e.g. 250 or -100" /></div>
         <div id="btRWrap" class="hidden"><label class="fld">R-multiple</label><input id="btR" type="number" step="any" placeholder="e.g. 2 or -1" /></div>
         <div class="sm:col-span-2"><label class="fld">Notes</label><input id="btNotes" type="text" placeholder="Optional" /></div>
+        <div class="sm:col-span-2">
+          <label class="flex items-center gap-2 text-sm cursor-pointer select-none">
+            <input id="btBreakEven" type="checkbox" class="w-4 h-4 accent-gold" />
+            <span>Mark as break-even <span class="text-faint">— excluded from win/loss &amp; risk:reward</span></span>
+          </label>
+        </div>
       </div>
       <div class="flex items-center justify-between mt-6">
         <button id="btTradeDeleteBtn" class="hidden text-loss text-sm hover:underline">Delete trade</button>
@@ -764,6 +776,6 @@
   <!-- TOAST -->
   <div id="toast" class="hidden fixed bottom-20 lg:bottom-6 left-1/2 -translate-x-1/2 z-[60] bg-panel2 border border-gold/40 text-sm px-4 py-2.5 rounded-lg shadow-lg"></div>
 
-  <script src="/tradesafe.js?v=11"></script>
+  <script src="/tradesafe.js?v=12"></script>
 </body>
 </html>
