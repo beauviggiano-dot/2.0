@@ -3,11 +3,14 @@ type GateScreenProps = {
   username?: string
   checkoutUrl?: string | null
   message?: string
+  // Optional technical diagnostic (e.g. the exact API failure) shown in a small
+  // muted line to help troubleshoot login problems.
+  detail?: string
 }
 
 // The public shell shown to anyone who is not a verified member. It mirrors the
 // TradeSafe dark/gold look so the transition into the app feels seamless.
-export function GateScreen({ variant, username, checkoutUrl, message }: GateScreenProps) {
+export function GateScreen({ variant, username, checkoutUrl, message, detail }: GateScreenProps) {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-[#0E1116] px-6 py-16 text-[#E5E9EF]">
       <div className="flex w-full max-w-md flex-col items-center text-center">
@@ -79,6 +82,12 @@ export function GateScreen({ variant, username, checkoutUrl, message }: GateScre
             </a>
           </>
         )}
+
+        {detail ? (
+          <p className="mt-6 max-w-full break-words rounded-md border border-[#232A33] bg-[#131820] px-3 py-2 font-mono text-[11px] leading-relaxed text-[#7B93A1]">
+            Details: {detail}
+          </p>
+        ) : null}
 
         <p className="mt-10 text-xs leading-relaxed text-[#5A626E]">
           Powered by Whop &middot; Your session is verified on every visit.
