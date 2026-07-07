@@ -1,7 +1,7 @@
 export default function Page() {
   return (
     <iframe
-      src="/tradesafe.html?v=2"
+      src="/tradesafe.html?v=3"
       title="TradeSafe — Day Trading Workflow"
       style={{
         position: "fixed",

@@ -71,6 +71,8 @@ const LS = {
   favorites: 'rl_favorites',
   defaults: 'rl_instrument_defaults',
   trades: 'rl_trades',
+  theme: 'ts_theme',
+  backtests: 'ts_backtests',
 };
 function load(key, fallback){ try{ const v = localStorage.getItem(key); return v===null? fallback : JSON.parse(v); }catch(e){ return fallback; } }
 function save(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){ console.error('Storage failed', e); } }
@@ -80,6 +82,9 @@ let state = {
   favorites: load(LS.favorites, ['ES','NQ','EURUSD']),
   defaults: load(LS.defaults, {}),
   trades: load(LS.trades, []),
+  backtests: load(LS.backtests, []),
+  theme: load(LS.theme, 'dark'),
+  editingBacktestId: null,
   selected: INSTRUMENTS[0],
   riskMode: 'dollar', // or 'percent'
   direction: 'long',
@@ -103,6 +108,38 @@ function toast(msg){
   window._toastTimer = setTimeout(()=> t.classList.add('hidden'), 2600);
 }
 function uid(){ return 't_' + Date.now() + '_' + Math.floor(Math.random()*10000); }
+
+/* ---------------- THEME (light / dark) ---------------- */
+const SUN_ICON = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
+const MOON_ICON = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+function applyTheme(){
+  const light = state.theme === 'light';
+  const root = document.documentElement;
+  root.classList.toggle('theme-light', light);
+  root.classList.toggle('theme-dark', !light);
+  // Sidebar toggle shows icon + label; mobile shows icon only.
+  const full = document.getElementById('themeToggle');
+  if (full) full.innerHTML = (light ? MOON_ICON : SUN_ICON) + `<span>${light ? 'Dark mode' : 'Light mode'}</span>`;
+  const mob = document.getElementById('themeToggleMobile');
+  if (mob) mob.innerHTML = light ? MOON_ICON : SUN_ICON;
+  // Charts read CSS colors, so refresh them on theme change.
+  if (typeof rerenderCharts === 'function') rerenderCharts();
+}
+function toggleTheme(){
+  state.theme = state.theme === 'light' ? 'dark' : 'light';
+  save(LS.theme, state.theme);
+  applyTheme();
+}
+
+/* ---------------- INTRO LOADING SCREEN ---------------- */
+function hideIntro(){
+  const el = document.getElementById('introScreen');
+  if (!el) return;
+  setTimeout(()=>{
+    el.classList.add('fade');
+    setTimeout(()=> el.remove(), 650);
+  }, 1600);
+}
 
 /* ---------------- NAVIGATION ---------------- */
 function setView(view){
@@ -600,8 +637,17 @@ function downloadBlob(content, filename, type){
 
 /* ---------- Journal charts ---------- */
 let setupChartInstance=null, todChartInstance=null, equityChartInstance=null;
+function cssColor(varName){
+  const v = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+  return v ? `rgb(${v})` : '#8B93A1';
+}
 function chartTheme(){
-  return { grid:'#1B2129', text:'#8B93A1' };
+  return { grid:cssColor('--c-line'), text:cssColor('--c-muted'), gold:cssColor('--c-gold') };
+}
+// Re-draw all charts (used when the theme changes so colors match).
+function rerenderCharts(){
+  if (state.view === 'journal'){ renderSetupChart(); renderTimeOfDayChart(); }
+  renderEquityChart();
 }
 function renderSetupChart(){
   const ctx = document.getElementById('setupChart');
@@ -919,7 +965,7 @@ function renderEquityChart(){
   equityChartInstance = new Chart(ctx, {
     type:'line',
     data:{ labels: labels.length?labels:['Start'], datasets:[{
-      data: data.length?data:[0], borderColor:'#D4A24C', backgroundColor:'rgba(212,162,76,0.08)',
+      data: data.length?data:[0], borderColor:th.gold, backgroundColor:'rgba(212,162,76,0.08)',
       fill:true, tension:0.3, pointRadius:0, borderWidth:2,
     }]},
     options:{ plugins:{legend:{display:false}}, scales:{
@@ -933,6 +979,13 @@ function renderEquityChart(){
    INIT
    ================================================================ */
 function init(){
+  applyTheme();
+  hideIntro();
+  const tt = document.getElementById('themeToggle');
+  if (tt) tt.addEventListener('click', toggleTheme);
+  const ttm = document.getElementById('themeToggleMobile');
+  if (ttm) ttm.addEventListener('click', toggleTheme);
+
   refreshAccountDisplays();
   setRiskMode('dollar');
   setDirection('long');
