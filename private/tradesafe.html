@@ -176,15 +176,19 @@
       </nav>
 
       <div class="mt-auto space-y-3">
-        <button id="backupBtn" class="w-full flex items-center justify-center gap-2 text-sm text-muted border border-line rounded-xl px-4 py-2.5 hover:border-gold/40 hover:text-gold transition">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
-          Backup &amp; Restore
-        </button>
+        <div id="syncStatus" class="w-full flex items-center justify-center gap-2 text-xs text-faint px-4 py-1.5">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
+          <span id="syncStatusText">Synced to your account</span>
+        </div>
         <button id="themeToggle" class="theme-toggle w-full flex items-center justify-center gap-2 text-sm text-muted border border-line rounded-xl px-4 py-2.5 hover:border-gold/40 hover:text-gold transition"></button>
         <button id="openAccountBtn" class="w-full text-left bg-panel2 border border-line rounded-xl px-4 py-3 hover:border-gold/40 transition">
           <div class="text-[10px] uppercase tracking-wide text-faint">Account Balance</div>
           <div id="sidebarAccount" class="num text-lg font-semibold text-gold">$10,000.00</div>
         </button>
+        <div class="flex items-center justify-between gap-2 border border-line rounded-xl px-3 py-2">
+          <span id="userEmail" class="text-xs text-muted truncate" title="">Loading…</span>
+          <button id="logoutBtn" class="text-xs text-faint hover:text-loss transition shrink-0">Log out</button>
+        </div>
       </div>
     </aside>
 
@@ -809,38 +813,96 @@
     </div>
   </div>
 
-  <!-- ============ BACKUP & RESTORE MODAL ============ -->
-  <div id="backupModal" class="hidden fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 bg-black/60 overflow-y-auto">
-    <div class="bg-panel border border-line rounded-2xl w-full max-w-lg p-6 my-6">
-      <div class="flex items-start justify-between mb-1">
-        <h2 class="font-display font-semibold text-lg">Backup &amp; Restore</h2>
-        <button id="backupModalClose" class="text-faint hover:text-loss text-2xl leading-none">&times;</button>
-      </div>
-      <p class="text-xs text-muted mb-5">Your data is saved in this browser only. Export a backup file to keep it safe or move it to another device or browser.</p>
-
-      <div class="bg-panel2 border border-line rounded-xl p-4 mb-3">
-        <div class="text-sm font-semibold mb-1">Export backup</div>
-        <p class="text-xs text-muted mb-3">Downloads a single file with all your trades, backtests, account balance, and settings.</p>
-        <div id="backupSummary" class="text-xs text-faint mb-3"></div>
-        <button id="backupExportBtn" type="button" class="btn-gold text-sm w-full">Download backup file</button>
-      </div>
-
-      <div class="bg-panel2 border border-line rounded-xl p-4">
-        <div class="text-sm font-semibold mb-1">Import backup</div>
-        <p class="text-xs text-muted mb-3">Restore from a previously exported file. <span class="text-loss">This replaces all current data in this browser.</span></p>
-        <input id="backupFileInput" type="file" accept="application/json,.json" class="hidden" />
-        <button id="backupImportBtn" type="button" class="btn-ghost text-sm w-full">Choose backup file…</button>
-      </div>
-
-      <div class="flex justify-end mt-6">
-        <button id="backupDoneBtn" type="button" class="btn-ghost text-sm">Done</button>
-      </div>
-    </div>
-  </div>
-
   <!-- TOAST -->
   <div id="toast" class="hidden fixed bottom-20 lg:bottom-6 left-1/2 -translate-x-1/2 z-[60] bg-panel2 border border-gold/40 text-sm px-4 py-2.5 rounded-lg shadow-lg"></div>
 
-  <script src="/app/script?v=23"></script>
+  <!-- Cloud sync bootstrap: hydrate localStorage from the user's account
+       BEFORE the app boots, then load the app, then keep pushing changes. -->
+  <script>
+  (function(){
+    var SYNC_KEYS = ['rl_account_balance','rl_favorites','rl_instrument_defaults','rl_trades','ts_theme','ts_backtests','ts_size_precision','ts_privacy','ts_rr_period','ts_tod_buckets_journal','ts_tod_buckets_backtest'];
+    var UPLOADED_FLAG = 'ts_cloud_seeded';
+
+    function collectLocal(){
+      var out = {};
+      for (var i=0;i<SYNC_KEYS.length;i++){
+        var k = SYNC_KEYS[i];
+        var v = localStorage.getItem(k);
+        if (v !== null) out[k] = v; // store raw JSON strings
+      }
+      return out;
+    }
+
+    function applyCloud(data){
+      if (!data || typeof data !== 'object') return;
+      for (var i=0;i<SYNC_KEYS.length;i++){
+        var k = SYNC_KEYS[i];
+        if (Object.prototype.hasOwnProperty.call(data, k) && data[k] != null){
+          try { localStorage.setItem(k, data[k]); } catch(e){}
+        }
+      }
+    }
+
+    // Debounced push of current local data up to the account.
+    var pushTimer = null, pushing = false, pendingAgain = false;
+    function doPush(){
+      if (pushing){ pendingAgain = true; return; }
+      pushing = true;
+      fetch('/api/sync', {
+        method:'PUT',
+        headers:{'content-type':'application/json'},
+        body: JSON.stringify({ data: collectLocal() }),
+      }).catch(function(){}).finally(function(){
+        pushing = false;
+        if (pendingAgain){ pendingAgain = false; doPush(); }
+      });
+    }
+    window.__tsPushCloud = function(){
+      clearTimeout(pushTimer);
+      pushTimer = setTimeout(doPush, 800);
+    };
+
+    function loadApp(){
+      var s = document.createElement('script');
+      s.src = '/app/script?v=24';
+      document.body.appendChild(s);
+    }
+
+    // 1. Pull the account's data first.
+    fetch('/api/sync', { headers:{'accept':'application/json'} })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(res){
+        var cloud = res && res.data ? res.data : {};
+        var cloudHasData = cloud && Object.keys(cloud).length > 0;
+        var localHasData = SYNC_KEYS.some(function(k){ return localStorage.getItem(k) !== null; });
+
+        if (cloudHasData){
+          // Cloud wins on load.
+          applyCloud(cloud);
+          try { localStorage.setItem(UPLOADED_FLAG, '1'); } catch(e){}
+          loadApp();
+        } else if (localHasData && !localStorage.getItem(UPLOADED_FLAG)){
+          // First login with existing browser data: offer to upload it.
+          var wantUpload = window.confirm(
+            'Welcome! We found trading data saved in this browser.\n\n' +
+            'Upload it to your account so it syncs across your devices?\n\n' +
+            'OK = upload this data   |   Cancel = start fresh in the cloud'
+          );
+          try { localStorage.setItem(UPLOADED_FLAG, '1'); } catch(e){}
+          if (wantUpload){
+            doPush();
+          } else {
+            // Start fresh: clear local so the empty cloud is the source of truth.
+            SYNC_KEYS.forEach(function(k){ try{ localStorage.removeItem(k); }catch(e){} });
+          }
+          loadApp();
+        } else {
+          // Nothing anywhere yet, or already seeded: just boot.
+          loadApp();
+        }
+      })
+      .catch(function(){ loadApp(); });
+  })();
+  </script>
 </body>
 </html>

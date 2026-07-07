@@ -88,7 +88,7 @@ function defaultTodBuckets(){
   ];
 }
 function load(key, fallback){ try{ const v = localStorage.getItem(key); return v===null? fallback : JSON.parse(v); }catch(e){ return fallback; } }
-function save(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){ console.error('Storage failed', e); } }
+function save(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){ console.error('Storage failed', e); } try{ if(window.__tsPushCloud) window.__tsPushCloud(); }catch(e){} }
 
 let state = {
   account: load(LS.account, 10000),
@@ -1843,74 +1843,24 @@ function bindTodEditor(){
   });
 }
 
-/* ---- backup & restore (export/import all localStorage data) ---- */
-function collectBackupData(){
-  const data = {};
-  Object.values(LS).forEach(key=>{
-    const raw = localStorage.getItem(key);
-    if (raw !== null) data[key] = raw; // store raw JSON strings verbatim
-  });
-  return data;
-}
-function openBackupModal(){
-  const trades = load(LS.trades, []).length;
-  const backtests = load(LS.backtests, []).length;
-  document.getElementById('backupSummary').textContent =
-    `Includes ${trades} journal trade${trades===1?'':'s'}, ${backtests} backtest strateg${backtests===1?'y':'ies'}, your balance and settings.`;
-  document.getElementById('backupModal').classList.remove('hidden');
-}
-function closeBackupModal(){ document.getElementById('backupModal').classList.add('hidden'); }
-function exportBackup(){
-  const payload = {
-    app: 'tradesafe',
-    type: 'tradesafe-backup',
-    version: 1,
-    exportedAt: new Date().toISOString(),
-    data: collectBackupData(),
-  };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type:'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  const stamp = new Date().toISOString().slice(0,10);
-  a.href = url; a.download = `tradesafe-backup-${stamp}.json`;
-  document.body.appendChild(a); a.click(); a.remove();
-  URL.revokeObjectURL(url);
-  toast('Backup downloaded');
-}
-function importBackup(file){
-  const reader = new FileReader();
-  reader.onload = ()=>{
-    let parsed;
-    try { parsed = JSON.parse(reader.result); }
-    catch(e){ toast('Invalid backup file'); return; }
-    const data = parsed && parsed.data;
-    if (parsed.type !== 'tradesafe-backup' || !data || typeof data !== 'object'){
-      toast('Not a valid TradeSafe backup'); return;
-    }
-    if (!confirm('Import this backup? It will replace all current data in this browser.')) return;
-    // Clear existing app keys, then restore from the backup.
-    Object.values(LS).forEach(key=> localStorage.removeItem(key));
-    Object.keys(data).forEach(key=>{
-      try { localStorage.setItem(key, data[key]); } catch(e){ console.error('Restore failed for', key, e); }
-    });
-    toast('Backup restored — reloading…');
-    setTimeout(()=> location.reload(), 700);
-  };
-  reader.onerror = ()=> toast('Could not read file');
-  reader.readAsText(file);
-}
-function bindBackup(){
-  const openBtn = document.getElementById('backupBtn');
-  if (openBtn) openBtn.addEventListener('click', openBackupModal);
-  document.getElementById('backupModalClose').addEventListener('click', closeBackupModal);
-  document.getElementById('backupDoneBtn').addEventListener('click', closeBackupModal);
-  document.getElementById('backupExportBtn').addEventListener('click', exportBackup);
-  const fileInput = document.getElementById('backupFileInput');
-  document.getElementById('backupImportBtn').addEventListener('click', ()=> fileInput.click());
-  fileInput.addEventListener('change', (e)=>{
-    const file = e.target.files && e.target.files[0];
-    if (file) importBackup(file);
-    e.target.value = ''; // allow re-selecting the same file
+/* ---- account controls (email display + log out) ---- */
+function bindAccount(){
+  // Populate the signed-in user's email from Better Auth.
+  fetch('/api/auth/get-session', { headers:{ 'accept':'application/json' } })
+    .then(r=> r.ok ? r.json() : null)
+    .then(res=>{
+      const email = res && res.user && res.user.email;
+      const el = document.getElementById('userEmail');
+      if (el && email){ el.textContent = email; el.title = email; }
+      else if (el){ el.textContent = 'Signed in'; }
+    })
+    .catch(()=>{ const el = document.getElementById('userEmail'); if (el) el.textContent = 'Signed in'; });
+
+  const logoutBtn = document.getElementById('logoutBtn');
+  if (logoutBtn) logoutBtn.addEventListener('click', ()=>{
+    fetch('/api/auth/sign-out', { method:'POST', headers:{ 'content-type':'application/json' }, body:'{}' })
+      .catch(()=>{})
+      .finally(()=>{ location.href = '/sign-in'; });
   });
 }
 
@@ -1918,7 +1868,7 @@ function init(){
   applyTheme();
   hideIntro();
   bindTodEditor();
-  bindBackup();
+  bindAccount();
   const tt = document.getElementById('themeToggle');
   if (tt) tt.addEventListener('click', toggleTheme);
   const ttm = document.getElementById('themeToggleMobile');
