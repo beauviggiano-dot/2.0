@@ -1,145 +1,135 @@
 import { NextResponse } from "next/server"
+import { sql } from "@/lib/db"
 
-// ForexFactory embeds the full month of calendar data (past + future) in an
-// inline `window.calendarComponentStates[...]` object on the calendar page.
-// We scrape that, extract just the `days` array (whose elements are valid
-// JSON), normalize it, and cache it. No API key required.
+export const dynamic = "force-dynamic"
 
-export const revalidate = 900 // 15 minutes
+// ForexFactory's official weekly JSON feed (no key required). We sync the
+// current week into the DB on each request, so history accumulates over time
+// and past/monthly views can be served from the database.
+const FF_FEED = "https://nfs.faireconomy.media/ff_calendar_thisweek.json"
 
-const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"]
-const MONTH_LABELS = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-]
+type FeedItem = {
+  title: string
+  country: string
+  date: string
+  impact: string
+  forecast: string
+  previous: string
+}
 
-const UA =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+type EventRow = {
+  id: string
+  title: string
+  country: string
+  currency: string | null
+  event_date: string
+  event_day: string
+  impact: string
+  all_day: boolean
+  forecast: string | null
+  previous: string | null
+  actual: string | null
+}
 
-// Validate/normalize a `?month=` param like "jul.2026". Falls back to current month (ET).
-function resolveMonth(raw: string | null): { param: string; monthIdx: number; year: number } {
-  const m = raw?.trim().toLowerCase().match(/^([a-z]{3})\.(\d{4})$/)
-  if (m && MONTHS.includes(m[1])) {
-    return { param: `${m[1]}.${m[2]}`, monthIdx: MONTHS.indexOf(m[1]), year: parseInt(m[2], 10) }
+// Normalize FF impact labels to our four folders.
+function normImpact(raw: string): string {
+  const s = (raw || "").toLowerCase()
+  if (s.includes("high")) return "high"
+  if (s.includes("medium")) return "medium"
+  if (s.includes("low")) return "low"
+  if (s.includes("holiday")) return "holiday"
+  return "low"
+}
+
+// Deterministic natural key so re-syncing the same event updates it in place.
+function eventId(it: FeedItem): string {
+  const slug = `${it.date}|${it.country}|${it.title}`
+  let hash = 0
+  for (let i = 0; i < slug.length; i++) hash = (hash * 31 + slug.charCodeAt(i)) | 0
+  return `ff_${(hash >>> 0).toString(36)}`
+}
+
+// Pull the current week from the feed and upsert into the DB.
+async function syncCurrentWeek(): Promise<void> {
+  const res = await fetch(FF_FEED, {
+    headers: { "User-Agent": "Mozilla/5.0", Accept: "application/json" },
+    cache: "no-store",
+  })
+  if (!res.ok) throw new Error(`feed ${res.status}`)
+  const items = (await res.json()) as FeedItem[]
+  if (!Array.isArray(items) || !items.length) return
+
+  for (const it of items) {
+    const impact = normImpact(it.impact)
+    const id = eventId(it)
+    const day = it.date.slice(0, 10) // calendar day in the feed's ET offset
+    const isHoliday = impact === "holiday"
+    await sql`
+      INSERT INTO calendar_events
+        (id, title, country, currency, event_date, event_day, impact, all_day, forecast, previous, actual, updated_at)
+      VALUES
+        (${id}, ${it.title}, ${it.country}, ${it.country}, ${it.date}, ${day},
+         ${impact}, ${isHoliday}, ${it.forecast || null}, ${it.previous || null}, NULL, now())
+      ON CONFLICT (id) DO UPDATE SET
+        forecast = EXCLUDED.forecast,
+        previous = EXCLUDED.previous,
+        impact = EXCLUDED.impact,
+        updated_at = now()
+    `
   }
-  // Current month in US Eastern (ForexFactory's reference timezone).
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York",
-    year: "numeric",
-    month: "numeric",
-  }).formatToParts(new Date())
-  const year = parseInt(parts.find((p) => p.type === "year")!.value, 10)
-  const monthIdx = parseInt(parts.find((p) => p.type === "month")!.value, 10) - 1
-  return { param: `${MONTHS[monthIdx]}.${year}`, monthIdx, year }
 }
 
-// Extract the balanced `days: [ ... ]` array literal from the page HTML.
-// The wrapper object uses unquoted keys (not valid JSON), but the array
-// elements themselves are valid JSON, so we isolate and parse just the array.
-function extractDaysArray(html: string): unknown[] | null {
-  const key = "window.calendarComponentStates"
-  const keyIdx = html.indexOf(key)
-  if (keyIdx < 0) return null
-  const daysIdx = html.indexOf("days:", keyIdx)
-  if (daysIdx < 0) return null
-  const start = html.indexOf("[", daysIdx)
-  if (start < 0) return null
-
-  let depth = 0
-  let inStr = false
-  let quote = ""
-  let esc = false
-  for (let j = start; j < html.length; j++) {
-    const c = html[j]
-    if (inStr) {
-      if (esc) esc = false
-      else if (c === "\\") esc = true
-      else if (c === quote) inStr = false
-      continue
-    }
-    if (c === '"' || c === "'") {
-      inStr = true
-      quote = c
-      continue
-    }
-    if (c === "[") depth++
-    else if (c === "]") {
-      depth--
-      if (depth === 0) {
-        try {
-          return JSON.parse(html.slice(start, j + 1))
-        } catch {
-          return null
-        }
-      }
-    }
-  }
-  return null
-}
-
-// en-CA formats as YYYY-MM-DD; anchor the event to ForexFactory's ET calendar day.
-function etDateISO(dateline: number): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/New_York",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date(dateline * 1000))
-}
-
-const VALID_IMPACT = new Set(["high", "medium", "low", "holiday"])
-
+// GET /api/calendar?month=YYYY-MM  (defaults to current month, UTC)
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
-  const { param, monthIdx, year } = resolveMonth(searchParams.get("month"))
-  const meta = { month: param, monthLabel: `${MONTH_LABELS[monthIdx]} ${year}`, monthIdx, year }
+  const month = searchParams.get("month") // "YYYY-MM"
 
+  let syncError: string | null = null
   try {
-    const res = await fetch(`https://www.forexfactory.com/calendar?month=${param}`, {
-      headers: {
-        "User-Agent": UA,
-        Accept: "text/html,application/xhtml+xml",
-        "Accept-Language": "en-US,en;q=0.9",
-      },
-      next: { revalidate },
-    })
-    if (!res.ok) throw new Error(`ForexFactory responded ${res.status}`)
-
-    const html = await res.text()
-    const days = extractDaysArray(html)
-    if (!days) throw new Error("Could not locate calendar data")
-
-    const events: Array<Record<string, unknown>> = []
-    for (const day of days as Array<Record<string, unknown>>) {
-      const dayEvents = Array.isArray(day?.events) ? (day.events as Array<Record<string, unknown>>) : []
-      for (const e of dayEvents) {
-        const impact = String(e.impactName || "").toLowerCase()
-        if (!VALID_IMPACT.has(impact)) continue
-        events.push({
-          id: e.id,
-          date: etDateISO(Number(e.dateline)),
-          dateline: e.dateline,
-          time: e.timeLabel || "",
-          currency: e.currency || "",
-          impact,
-          title: e.name || "",
-          actual: e.actual ?? "",
-          forecast: e.forecast ?? "",
-          previous: e.previous ?? "",
-        })
-      }
-    }
-
-    events.sort((a, b) => Number(a.dateline) - Number(b.dateline))
-
-    return NextResponse.json(
-      { source: "forexfactory", ...meta, count: events.length, events },
-      { headers: { "Cache-Control": "public, s-maxage=900, stale-while-revalidate=3600" } },
-    )
+    await syncCurrentWeek()
   } catch (err) {
-    return NextResponse.json(
-      { source: "error", ...meta, count: 0, events: [], error: (err as Error).message },
-      { status: 200 },
-    )
+    // Non-fatal: still serve whatever history is already stored.
+    syncError = err instanceof Error ? err.message : "sync failed"
   }
+
+  // Resolve the month window (first day .. first day of next month).
+  const now = new Date()
+  const [y, m] = month
+    ? (month.split("-").map(Number) as [number, number])
+    : [now.getUTCFullYear(), now.getUTCMonth() + 1]
+  const start = `${y}-${String(m).padStart(2, "0")}-01`
+  const nextM = m === 12 ? 1 : m + 1
+  const nextY = m === 12 ? y + 1 : y
+  const end = `${nextY}-${String(nextM).padStart(2, "0")}-01`
+
+  const rows = (await sql`
+    SELECT id, title, country, currency, event_date, event_day, impact, all_day, forecast, previous, actual
+    FROM calendar_events
+    WHERE event_day >= ${start} AND event_day < ${end}
+    ORDER BY event_date ASC
+  `) as EventRow[]
+
+  const events = rows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    currency: r.currency || r.country,
+    date: typeof r.event_date === "string" ? r.event_date : new Date(r.event_date).toISOString(),
+    day:
+      typeof r.event_day === "string"
+        ? r.event_day.slice(0, 10)
+        : new Date(r.event_day).toISOString().slice(0, 10),
+    impact: r.impact,
+    allDay: r.all_day,
+    forecast: r.forecast,
+    previous: r.previous,
+    actual: r.actual,
+  }))
+
+  return NextResponse.json({
+    source: "forexfactory-weekly+db",
+    month: `${y}-${String(m).padStart(2, "0")}`,
+    count: events.length,
+    syncError,
+    events,
+  })
 }

@@ -380,23 +380,130 @@
 
       <!-- ============ CALENDAR ============ -->
       <section id="view-calendar" class="view">
-        <div class="mb-6 flex flex-wrap items-end justify-between gap-2">
+        <div class="mb-4 flex flex-wrap items-end justify-between gap-2">
           <div>
             <h1 class="font-display text-2xl font-semibold">Economic News Calendar</h1>
-            <p id="calWeekLabel" class="text-muted text-sm mt-1">This week</p>
+            <p class="text-muted text-sm mt-1">Live from ForexFactory. History builds week by week for backtesting.</p>
           </div>
           <span id="calSource" class="text-[11px] uppercase tracking-wide text-faint border border-line rounded-full px-2.5 py-1"></span>
         </div>
 
-        <div class="flex flex-wrap items-center gap-2 mb-3" id="currencyFilters"></div>
-        <div class="flex flex-wrap items-center gap-2 mb-6">
-          <button class="impact-filter chip on px-3 py-1.5 rounded-full text-xs" data-impact="all">All impact</button>
-          <button class="impact-filter chip px-3 py-1.5 rounded-full text-xs" data-impact="high">High</button>
-          <button class="impact-filter chip px-3 py-1.5 rounded-full text-xs" data-impact="medium">Medium</button>
-          <button class="impact-filter chip px-3 py-1.5 rounded-full text-xs" data-impact="low">Low</button>
+        <!-- Period navigation + view toggle -->
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div class="flex items-center gap-2">
+            <button id="calPrev" class="btn-ghost px-3 py-1.5 text-sm" aria-label="Previous period">&larr;</button>
+            <div id="calPeriodLabel" class="font-display font-semibold text-base min-w-[9rem] text-center">—</div>
+            <button id="calNext" class="btn-ghost px-3 py-1.5 text-sm" aria-label="Next period">&rarr;</button>
+            <button id="calToday" class="btn-ghost px-3 py-1.5 text-sm">Today</button>
+          </div>
+          <div class="toggle-seg" id="calViewToggle">
+            <button data-mode="week" class="on">Week</button>
+            <button data-mode="month">Month</button>
+          </div>
         </div>
 
+        <!-- Currency filter chips -->
+        <div class="flex flex-wrap items-center gap-2 mb-3" id="currencyFilters"></div>
+
+        <!-- ForexFactory-style impact "folders" (checkboxes) -->
+        <div class="flex flex-wrap items-center gap-2 mb-6">
+          <span class="text-xs text-faint uppercase tracking-wide mr-1">Folders:</span>
+          <label class="folder-check chip on px-3 py-1.5 rounded-full text-xs flex items-center gap-2 cursor-pointer" data-impact="high">
+            <input type="checkbox" class="folder-cb w-3.5 h-3.5" data-impact="high" checked>
+            <span class="cal-dot impact-high"></span> High
+          </label>
+          <label class="folder-check chip on px-3 py-1.5 rounded-full text-xs flex items-center gap-2 cursor-pointer" data-impact="medium">
+            <input type="checkbox" class="folder-cb w-3.5 h-3.5" data-impact="medium" checked>
+            <span class="cal-dot impact-medium"></span> Medium
+          </label>
+          <label class="folder-check chip on px-3 py-1.5 rounded-full text-xs flex items-center gap-2 cursor-pointer" data-impact="low">
+            <input type="checkbox" class="folder-cb w-3.5 h-3.5" data-impact="low" checked>
+            <span class="cal-dot impact-low"></span> Low
+          </label>
+          <label class="folder-check chip on px-3 py-1.5 rounded-full text-xs flex items-center gap-2 cursor-pointer" data-impact="holiday">
+            <input type="checkbox" class="folder-cb w-3.5 h-3.5" data-impact="holiday" checked>
+            <span class="cal-dot impact-holiday"></span> Holidays
+          </label>
+        </div>
+
+        <!-- Week (list) view -->
         <div id="calendarDays" class="space-y-6"></div>
+        <!-- Month (grid) view -->
+        <div id="calendarMonth" class="hidden"></div>
+        <div id="calEmpty" class="hidden text-center text-muted py-16">No economic events stored for this period yet.</div>
+      </section>
+
+      <!-- ============ BACKTESTING ============ -->
+      <section id="view-backtest" class="view">
+        <div class="flex items-center justify-between gap-3 mb-6 flex-wrap">
+          <div>
+            <h1 class="font-display text-2xl font-semibold">Strategy Backtesting</h1>
+            <p class="text-muted text-sm mt-1">Build a strategy, log simulated trades, and measure its edge before risking real capital.</p>
+          </div>
+          <button id="newBacktestBtn" class="btn-gold text-sm">+ New Strategy</button>
+        </div>
+
+        <div class="grid lg:grid-cols-4 gap-4">
+          <!-- Strategy list -->
+          <div class="lg:col-span-1 bg-panel border border-line rounded-xl p-3 flex flex-col h-[600px]">
+            <div class="text-[11px] uppercase tracking-wide text-faint px-1 mb-2">Strategies</div>
+            <div id="strategyList" class="flex-1 overflow-y-auto space-y-1.5 -mx-1 px-1"></div>
+          </div>
+
+          <!-- Selected strategy detail -->
+          <div class="lg:col-span-3 space-y-4">
+            <div id="btEmpty" class="bg-panel border border-line rounded-xl p-12 text-center text-muted">
+              Create a strategy to start backtesting.
+            </div>
+
+            <div id="btDetail" class="hidden space-y-4">
+              <!-- Header + settings -->
+              <div class="bg-panel border border-line rounded-xl p-5">
+                <div class="flex items-start justify-between gap-3 flex-wrap">
+                  <div>
+                    <h2 id="btName" class="font-display font-semibold text-lg">—</h2>
+                    <p id="btDesc" class="text-sm text-muted mt-1"></p>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <div class="text-right">
+                      <div class="text-[11px] text-faint uppercase">Starting capital</div>
+                      <div id="btCapital" class="num font-semibold">—</div>
+                    </div>
+                    <button id="btEditBtn" class="btn-ghost text-sm">Edit</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Stats -->
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div class="bg-panel border border-line rounded-xl p-4"><div class="text-[11px] text-faint uppercase">Net P&amp;L</div><div id="btNetPnl" class="num text-xl font-semibold mt-1">—</div></div>
+                <div class="bg-panel border border-line rounded-xl p-4"><div class="text-[11px] text-faint uppercase">Win Rate</div><div id="btWinRate" class="num text-xl font-semibold mt-1">—</div></div>
+                <div class="bg-panel border border-line rounded-xl p-4"><div class="text-[11px] text-faint uppercase">Profit Factor</div><div id="btProfitFactor" class="num text-xl font-semibold mt-1">—</div></div>
+                <div class="bg-panel border border-line rounded-xl p-4"><div class="text-[11px] text-faint uppercase">Expectancy / trade</div><div id="btExpectancy" class="num text-xl font-semibold mt-1">—</div></div>
+                <div class="bg-panel border border-line rounded-xl p-4"><div class="text-[11px] text-faint uppercase">Total Trades</div><div id="btTotal" class="num text-lg font-semibold mt-1">—</div></div>
+                <div class="bg-panel border border-line rounded-xl p-4"><div class="text-[11px] text-faint uppercase">Avg Win</div><div id="btAvgWin" class="num text-lg font-semibold mt-1 text-profit">—</div></div>
+                <div class="bg-panel border border-line rounded-xl p-4"><div class="text-[11px] text-faint uppercase">Avg Loss</div><div id="btAvgLoss" class="num text-lg font-semibold mt-1 text-loss">—</div></div>
+                <div class="bg-panel border border-line rounded-xl p-4"><div class="text-[11px] text-faint uppercase">Max Drawdown</div><div id="btMaxDD" class="num text-lg font-semibold mt-1 text-loss">—</div></div>
+              </div>
+
+              <!-- Equity curve -->
+              <div class="bg-panel border border-line rounded-xl p-5">
+                <h3 class="font-display font-semibold text-sm mb-3">Equity Curve</h3>
+                <div class="h-56"><canvas id="btEquityChart"></canvas></div>
+              </div>
+
+              <!-- Simulated trades -->
+              <div class="bg-panel border border-line rounded-xl p-5">
+                <div class="flex items-center justify-between mb-4">
+                  <h3 class="font-display font-semibold text-sm">Simulated Trades</h3>
+                  <button id="btAddTradeBtn" class="btn-ghost text-sm">+ Add Trade</button>
+                </div>
+                <div id="btTradeList" class="space-y-2"></div>
+                <div id="btTradeEmpty" class="text-center text-muted py-10 text-sm">No trades yet — add simulated trades to test this strategy.</div>
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
 
     </main>

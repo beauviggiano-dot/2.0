@@ -721,142 +721,221 @@ function renderHeatmap(){
 }
 
 /* ================================================================
-   ECONOMIC NEWS CALENDAR (sample data, relative to current week)
+   ECONOMIC NEWS CALENDAR (live ForexFactory data via /api/calendar)
    ================================================================ */
-const NEWS_TEMPLATE = [
-  // day offset from Monday, time, currency, impact, title, forecast, previous
-  {day:0, time:'08:30', currency:'USD', impact:'medium', title:'Retail Sales m/m', forecast:'0.3%', previous:'0.1%'},
-  {day:0, time:'10:00', currency:'EUR', impact:'low', title:'Industrial Production m/m', forecast:'0.2%', previous:'-0.1%'},
-  {day:1, time:'08:30', currency:'USD', impact:'high', title:'CPI m/m', forecast:'0.2%', previous:'0.3%'},
-  {day:1, time:'09:00', currency:'GBP', impact:'medium', title:'Claimant Count Change', forecast:'12.4k', previous:'15.2k'},
-  {day:1, time:'14:00', currency:'USD', impact:'low', title:'Business Inventories m/m', forecast:'0.1%', previous:'0.2%'},
-  {day:2, time:'08:15', currency:'EUR', impact:'high', title:'ECB Interest Rate Decision', forecast:'2.50%', previous:'2.50%'},
-  {day:2, time:'08:30', currency:'USD', impact:'high', title:'Core Retail Sales m/m', forecast:'0.4%', previous:'0.2%'},
-  {day:2, time:'08:30', currency:'CAD', impact:'medium', title:'Manufacturing Sales m/m', forecast:'0.5%', previous:'-0.3%'},
-  {day:2, time:'08:30', currency:'USD', impact:'high', title:'Initial Jobless Claims', forecast:'225k', previous:'233k'},
-  {day:3, time:'02:00', currency:'JPY', impact:'medium', title:'BoJ Policy Statement', forecast:'—', previous:'—'},
-  {day:3, time:'08:30', currency:'USD', impact:'high', title:'PPI m/m', forecast:'0.2%', previous:'0.3%'},
-  {day:3, time:'10:00', currency:'USD', impact:'medium', title:'Michigan Consumer Sentiment (prelim)', forecast:'68.5', previous:'67.9'},
-  {day:4, time:'04:30', currency:'GBP', impact:'medium', title:'GDP m/m', forecast:'0.2%', previous:'0.0%'},
-  {day:4, time:'08:30', currency:'USD', impact:'high', title:'Non-Farm Payrolls', forecast:'185k', previous:'175k'},
-  {day:4, time:'08:30', currency:'USD', impact:'high', title:'Unemployment Rate', forecast:'4.1%', previous:'4.1%'},
-  {day:4, time:'08:30', currency:'CAD', impact:'medium', title:'Employment Change', forecast:'22.0k', previous:'27.0k'},
-];
-function getWeekDates(){
-  const now = new Date();
-  const day = now.getDay(); // 0 Sun .. 6 Sat
-  const diffToMonday = (day===0? -6 : 1-day);
-  const monday = new Date(now); monday.setDate(now.getDate()+diffToMonday);
-  const dates = [];
-  for (let i=0;i<5;i++){ const d = new Date(monday); d.setDate(monday.getDate()+i); dates.push(d); }
-  return dates;
-}
-// Cache of live events fetched from the ForexFactory feed (via /api/calendar).
-// Stays null until the fetch succeeds, at which point we use real data.
-let LIVE_EVENTS = null;
-let calLoadState = 'idle'; // 'idle' | 'loading' | 'live' | 'error'
 
-// Fallback: map the built-in sample template onto the current week's dates.
-function getTemplateEvents(){
-  const dates = getWeekDates();
-  return NEWS_TEMPLATE.map(ev=>{
-    const d = dates[ev.day];
-    const iso = d.toISOString().slice(0,10);
-    return {...ev, date: iso, weekday: d.toLocaleDateString(undefined,{weekday:'long', month:'short', day:'numeric'})};
-  }).sort((a,b)=> (a.date+a.time).localeCompare(b.date+b.time));
+// ---- date helpers (all in local time, anchored to noon to dodge DST edges) ----
+function ymd(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function monthKey(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
+function startOfWeek(d){ // Monday
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const day = x.getDay(); const diff = (day===0? -6 : 1-day);
+  x.setDate(x.getDate()+diff); return x;
 }
 
-function getWeekEvents(){
-  return LIVE_EVENTS && LIVE_EVENTS.length ? LIVE_EVENTS : getTemplateEvents();
-}
+// Calendar UI state.
+const calState = {
+  mode: 'week',            // 'week' | 'month'
+  anchor: new Date(),      // any date within the shown period
+  monthCache: {},          // 'YYYY-MM' -> { events, status }
+  currency: 'all',
+  folders: new Set(['high','medium','low','holiday']),
+  source: '',
+};
 
-// Fetch the real ForexFactory calendar and re-render anything that shows events.
-async function loadCalendar(){
-  calLoadState = 'loading';
+// Fetch (and cache) one month of events. Adjacent months are pulled too so a
+// week that straddles a month boundary still shows every day.
+async function ensureMonth(key){
+  if (calState.monthCache[key]) return calState.monthCache[key];
+  const entry = { events: [], status: 'loading' };
+  calState.monthCache[key] = entry;
   try {
-    const res = await fetch('/api/calendar', { cache: 'no-store' });
+    const res = await fetch(`/api/calendar?month=${key}`, { cache: 'no-store' });
     if (!res.ok) throw new Error('feed ' + res.status);
     const data = await res.json();
-    if (!data.events || !data.events.length) throw new Error('empty feed');
-    LIVE_EVENTS = data.events;
-    calLoadState = 'live';
+    entry.events = (data.events || []).map(e=>({
+      ...e,
+      time: e.allDay ? 'All Day' : new Date(e.date).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}),
+      weekday: new Date(e.day+'T12:00:00').toLocaleDateString(undefined,{weekday:'long', month:'short', day:'numeric'}),
+    }));
+    entry.status = 'live';
+    calState.source = data.source || 'live';
   } catch (err) {
-    console.log('[v0] calendar feed failed, using sample data:', err.message);
-    calLoadState = 'error';
+    console.log('[v0] calendar month load failed:', key, err.message);
+    entry.status = 'error';
   }
-  // Rebuild currency filters against the new dataset, then re-render consumers.
-  const curBox = document.getElementById('currencyFilters');
-  if (curBox) curBox.dataset.built = '';
+  return entry;
+}
+
+// Return every cached event across all loaded months (deduped by id).
+function allCachedEvents(){
+  const seen = new Set(); const out = [];
+  Object.values(calState.monthCache).forEach(m=>m.events.forEach(e=>{
+    if (!seen.has(e.id)){ seen.add(e.id); out.push(e); }
+  }));
+  return out;
+}
+
+// Events for the current period (week or month) after folder + currency filters.
+function periodEvents(){
+  let from, to;
+  if (calState.mode === 'week'){
+    from = startOfWeek(calState.anchor);
+    to = new Date(from); to.setDate(from.getDate()+7);
+  } else {
+    from = new Date(calState.anchor.getFullYear(), calState.anchor.getMonth(), 1);
+    to = new Date(calState.anchor.getFullYear(), calState.anchor.getMonth()+1, 1);
+  }
+  const fromIso = ymd(from), toIso = ymd(to);
+  return allCachedEvents().filter(e=>{
+    if (e.day < fromIso || e.day >= toIso) return false;
+    if (!calState.folders.has(e.impact)) return false;
+    if (calState.currency !== 'all' && e.currency !== calState.currency) return false;
+    return true;
+  }).sort((a,b)=> (a.date).localeCompare(b.date));
+}
+
+// Backwards-compatible helper used by the dashboard + journal news dropdown:
+// events for the real current week.
+function getWeekEvents(){
+  const from = startOfWeek(new Date());
+  const to = new Date(from); to.setDate(from.getDate()+7);
+  const fromIso = ymd(from), toIso = ymd(to);
+  return allCachedEvents()
+    .filter(e=> e.day>=fromIso && e.day<toIso)
+    .sort((a,b)=> a.date.localeCompare(b.date));
+}
+
+// Load the months needed for the current anchor + period, then re-render.
+async function loadCalendar(){
+  const keys = new Set([monthKey(calState.anchor)]);
+  // Include neighbouring months so straddling weeks are complete.
+  const a = calState.anchor;
+  keys.add(monthKey(new Date(a.getFullYear(), a.getMonth()-1, 15)));
+  keys.add(monthKey(new Date(a.getFullYear(), a.getMonth()+1, 15)));
+  // Always keep the real current week available for the dashboard.
+  keys.add(monthKey(new Date()));
+  updateCalSource('loading');
+  await Promise.all([...keys].map(ensureMonth));
   if (state.view === 'calendar') renderCalendar();
   renderDashboard();
 }
-let calFilters = {currency:'all', impact:'all'};
-function renderCalendar(){
-  const events = getWeekEvents();
-  const eventDates = [...new Set(events.map(e=>e.date))].sort();
-  const fmtLabel = (iso)=> new Date(iso+'T12:00:00Z').toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'});
-  if (eventDates.length){
-    document.getElementById('calWeekLabel').textContent = fmtLabel(eventDates[0]) + ' – ' + fmtLabel(eventDates[eventDates.length-1]);
+
+function updateCalSource(forced){
+  const el = document.getElementById('calSource');
+  if (!el) return;
+  const cur = calState.monthCache[monthKey(calState.anchor)];
+  const status = forced || (cur && cur.status) || 'idle';
+  if (status==='loading') el.textContent = 'Loading…';
+  else if (status==='error') el.textContent = 'Feed unavailable';
+  else el.textContent = 'Live · ForexFactory';
+}
+
+function periodLabel(){
+  if (calState.mode==='month'){
+    return calState.anchor.toLocaleDateString(undefined,{month:'long', year:'numeric'});
+  }
+  const from = startOfWeek(calState.anchor);
+  const to = new Date(from); to.setDate(from.getDate()+6);
+  const l = from.toLocaleDateString(undefined,{month:'short', day:'numeric'});
+  const r = to.toLocaleDateString(undefined,{month:'short', day:'numeric', year:'numeric'});
+  return `${l} – ${r}`;
+}
+
+let _calBound = false;
+function bindCalendarControls(){
+  if (_calBound) return; _calBound = true;
+
+  document.getElementById('calPrev').addEventListener('click', ()=>shiftPeriod(-1));
+  document.getElementById('calNext').addEventListener('click', ()=>shiftPeriod(1));
+  document.getElementById('calToday').addEventListener('click', ()=>{ calState.anchor = new Date(); loadCalendar(); });
+
+  document.querySelectorAll('#calViewToggle button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      calState.mode = btn.dataset.mode;
+      document.querySelectorAll('#calViewToggle button').forEach(b=>b.classList.toggle('on', b===btn));
+      loadCalendar();
+    });
+  });
+
+  document.querySelectorAll('.folder-cb').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      const imp = cb.dataset.impact;
+      if (cb.checked) calState.folders.add(imp); else calState.folders.delete(imp);
+      cb.closest('.folder-check').classList.toggle('on', cb.checked);
+      renderCalendarBody();
+    });
+  });
+}
+
+function shiftPeriod(dir){
+  const a = calState.anchor;
+  if (calState.mode==='month'){
+    calState.anchor = new Date(a.getFullYear(), a.getMonth()+dir, 1);
   } else {
-    const dates = getWeekDates();
-    document.getElementById('calWeekLabel').textContent =
-      dates[0].toLocaleDateString(undefined,{month:'short',day:'numeric'}) + ' – ' + dates[4].toLocaleDateString(undefined,{month:'short',day:'numeric', year:'numeric'});
+    calState.anchor = new Date(a.getFullYear(), a.getMonth(), a.getDate()+dir*7);
   }
+  loadCalendar();
+}
 
-  // Source badge so users know whether data is live from ForexFactory.
-  const srcEl = document.getElementById('calSource');
-  if (srcEl){
-    if (calLoadState==='live') srcEl.textContent = 'Live · ForexFactory';
-    else if (calLoadState==='loading') srcEl.textContent = 'Loading live data…';
-    else if (calLoadState==='error') srcEl.textContent = 'Offline · sample data';
-    else srcEl.textContent = '';
-  }
+function renderCalendar(){
+  bindCalendarControls();
+  document.getElementById('calPeriodLabel').textContent = periodLabel();
+  updateCalSource();
 
+  // Build currency chips from everything currently loaded.
   const priority = ['USD','EUR','GBP','JPY','CHF','CAD','AUD','NZD','CNY'];
-  const currencies = [...new Set(events.map(e=>e.currency))]
+  const currencies = [...new Set(allCachedEvents().map(e=>e.currency))]
     .sort((a,b)=>{ const ia=priority.indexOf(a), ib=priority.indexOf(b); return (ia<0?99:ia)-(ib<0?99:ib) || a.localeCompare(b); });
   const curBox = document.getElementById('currencyFilters');
-  if (curBox.dataset.built !== '1'){
-    // Currency set can change when live data loads, so rebuild these chips.
-    calFilters.currency = 'all';
-    curBox.innerHTML = `<button data-cur="all" class="currency-filter chip on px-3 py-1.5 rounded-full text-xs">All FX</button>` +
-      currencies.map(c=>`<button data-cur="${c}" class="currency-filter chip px-3 py-1.5 rounded-full text-xs">${c}</button>`).join('');
-    curBox.dataset.built = '1';
+  if (curBox && curBox.dataset.sig !== currencies.join(',')){
+    curBox.dataset.sig = currencies.join(',');
+    curBox.innerHTML = `<button data-cur="all" class="currency-filter chip ${calState.currency==='all'?'on':''} px-3 py-1.5 rounded-full text-xs">All FX</button>` +
+      currencies.map(c=>`<button data-cur="${c}" class="currency-filter chip ${calState.currency===c?'on':''} px-3 py-1.5 rounded-full text-xs">${c}</button>`).join('');
     curBox.querySelectorAll('.currency-filter').forEach(btn=>{
       btn.addEventListener('click', ()=>{
         curBox.querySelectorAll('.currency-filter').forEach(b=>b.classList.remove('on'));
         btn.classList.add('on');
-        calFilters.currency = btn.dataset.cur;
-        renderCalendarList();
+        calState.currency = btn.dataset.cur;
+        renderCalendarBody();
       });
     });
   }
-  // Impact filter buttons are static markup — bind their listeners only once.
-  if (!renderCalendar._impactBound){
-    renderCalendar._impactBound = true;
-    document.querySelectorAll('.impact-filter').forEach(btn=>{
-      btn.addEventListener('click', ()=>{
-        document.querySelectorAll('.impact-filter').forEach(b=>b.classList.remove('on'));
-        btn.classList.add('on');
-        calFilters.impact = btn.dataset.impact;
-        renderCalendarList();
-      });
-    });
-  }
-  renderCalendarList();
+  renderCalendarBody();
 }
-function renderCalendarList(){
-  const events = getWeekEvents().filter(e=>{
-    if (calFilters.currency!=='all' && e.currency!==calFilters.currency) return false;
-    if (calFilters.impact!=='all' && e.impact!==calFilters.impact) return false;
-    return true;
-  });
-  const byDay = {};
-  events.forEach(e=>{ (byDay[e.date] = byDay[e.date]||[]).push(e); });
 
+function renderCalendarBody(){
+  if (calState.mode==='month') renderCalendarMonth();
+  else renderCalendarList();
+}
+
+function eventRowHtml(e){
+  return `<div class="bg-panel border border-line rounded-xl px-4 py-3 flex items-center gap-4">
+      <div class="w-16 text-xs num text-muted shrink-0">${e.time}</div>
+      <span class="w-2.5 h-2.5 rounded-full impact-${e.impact} shrink-0"></span>
+      <div class="w-12 text-xs font-semibold shrink-0">${e.currency}</div>
+      <div class="flex-1 min-w-0"><div class="text-sm">${e.title}</div></div>
+      <div class="hidden sm:flex gap-4 text-xs text-muted shrink-0">
+        <div><span class="text-faint">Act</span> <span class="num">${e.actual ?? '—'}</span></div>
+        <div><span class="text-faint">Fcst</span> <span class="num">${e.forecast ?? '—'}</span></div>
+        <div><span class="text-faint">Prev</span> <span class="num">${e.previous ?? '—'}</span></div>
+      </div>
+    </div>`;
+}
+
+function renderCalendarList(){
+  const monthGrid = document.getElementById('calendarMonth');
   const container = document.getElementById('calendarDays');
+  const empty = document.getElementById('calEmpty');
+  monthGrid.classList.add('hidden');
+  container.classList.remove('hidden');
   container.innerHTML = '';
+
+  const events = periodEvents();
+  const byDay = {};
+  events.forEach(e=>{ (byDay[e.day] = byDay[e.day]||[]).push(e); });
   const todayIso = todayISO();
+
   Object.keys(byDay).sort().forEach(date=>{
     const dayEvents = byDay[date];
     const wrap = document.createElement('div');
@@ -867,29 +946,61 @@ function renderCalendarList(){
       </div>`;
     const list = document.createElement('div');
     list.className = 'space-y-2';
-    dayEvents.forEach(e=>{
-      const row = document.createElement('div');
-      row.className = 'bg-panel border border-line rounded-xl px-4 py-3 flex items-center gap-4';
-      row.innerHTML = `
-        <div class="w-14 text-xs num text-muted shrink-0">${e.time}</div>
-        <span class="w-2.5 h-2.5 rounded-full impact-${e.impact} shrink-0"></span>
-        <div class="w-12 text-xs font-semibold shrink-0">${e.currency}</div>
-        <div class="flex-1 min-w-0">
-          <div class="text-sm">${e.title}</div>
-        </div>
-        <div class="hidden sm:flex gap-4 text-xs text-muted shrink-0">
-          <div><span class="text-faint">Fcst</span> <span class="num">${e.forecast}</span></div>
-          <div><span class="text-faint">Prev</span> <span class="num">${e.previous}</span></div>
-        </div>
-      `;
-      list.appendChild(row);
-    });
+    list.innerHTML = dayEvents.map(eventRowHtml).join('');
     wrap.appendChild(list);
     container.appendChild(wrap);
   });
-  if (!events.length){
-    container.innerHTML = '<div class="text-center text-muted py-16">No events match these filters.</div>';
+
+  empty.classList.toggle('hidden', events.length>0);
+}
+
+function renderCalendarMonth(){
+  const container = document.getElementById('calendarDays');
+  const grid = document.getElementById('calendarMonth');
+  const empty = document.getElementById('calEmpty');
+  container.classList.add('hidden');
+  grid.classList.remove('hidden');
+
+  const events = periodEvents();
+  const byDay = {};
+  events.forEach(e=>{ (byDay[e.day] = byDay[e.day]||[]).push(e); });
+  empty.classList.toggle('hidden', events.length>0);
+
+  const year = calState.anchor.getFullYear(), month = calState.anchor.getMonth();
+  const first = new Date(year, month, 1);
+  const gridStart = startOfWeek(first);
+  const todayIso = todayISO();
+  const rank = { high:0, medium:1, low:2, holiday:3 };
+
+  const dows = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  let html = `<div class="grid grid-cols-7 gap-px bg-line border border-line rounded-xl overflow-hidden">`;
+  html += dows.map(d=>`<div class="bg-panel2 text-center text-[11px] uppercase tracking-wide text-faint py-2">${d}</div>`).join('');
+
+  for (let i=0;i<42;i++){
+    const d = new Date(gridStart); d.setDate(gridStart.getDate()+i);
+    const iso = ymd(d);
+    const inMonth = d.getMonth()===month;
+    const dayEvents = (byDay[iso]||[]).slice().sort((a,b)=> (rank[a.impact]-rank[b.impact]) || a.date.localeCompare(b.date));
+    const isToday = iso===todayIso;
+    const top = dayEvents.slice(0,3);
+    const more = dayEvents.length - top.length;
+    html += `<div class="bg-panel min-h-[92px] p-1.5 ${inMonth?'':'opacity-40'}">
+        <div class="flex items-center justify-between mb-1">
+          <span class="text-xs num ${isToday?'text-gold font-semibold':'text-muted'}">${d.getDate()}</span>
+          ${isToday?'<span class="w-1.5 h-1.5 rounded-full bg-gold"></span>':''}
+        </div>
+        <div class="space-y-0.5">
+          ${top.map(e=>`<div class="flex items-center gap-1 text-[10px] truncate" title="${e.time} ${e.currency} ${e.title.replace(/"/g,'')}">
+              <span class="cal-dot impact-${e.impact}"></span>
+              <span class="text-faint">${e.currency}</span>
+              <span class="truncate">${e.title}</span>
+            </div>`).join('')}
+          ${more>0?`<div class="text-[10px] text-faint">+${more} more</div>`:''}
+        </div>
+      </div>`;
   }
+  html += `</div>`;
+  grid.innerHTML = html;
 }
 
 /* ================================================================
@@ -928,13 +1039,13 @@ function renderDashboard(){
 
   // upcoming high impact news
   const now = new Date();
-  const upcoming = getWeekEvents().filter(e=> e.impact==='high' && new Date(e.date+'T'+e.time) >= now).slice(0,4);
+  const upcoming = getWeekEvents().filter(e=> e.impact==='high' && new Date(e.date) >= now).slice(0,4);
   document.getElementById('dashNews').innerHTML = upcoming.length ? upcoming.map(e=>`
     <div class="flex items-center gap-2 border-b border-line last:border-0 pb-2 last:pb-0">
       <span class="w-2 h-2 rounded-full impact-high shrink-0"></span>
       <div class="min-w-0 flex-1">
         <div class="truncate">${e.title}</div>
-        <div class="text-xs text-faint">${e.currency} · ${e.weekday.split(',')[0]} ${e.time}</div>
+        <div class="text-xs text-faint">${e.currency} · ${(e.weekday||'').split(',')[0]} ${e.time}</div>
       </div>
     </div>`).join('') : '<div class="text-muted text-sm">No high-impact events left this week.</div>';
 
