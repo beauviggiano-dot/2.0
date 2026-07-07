@@ -1,10 +1,8 @@
-import { auth } from "@/lib/auth"
-import { headers } from "next/headers"
-import { redirect } from "next/navigation"
 import { AuthForm } from "@/components/auth-form"
 
-export default async function SignUpPage() {
-  const session = await auth.api.getSession({ headers: await headers() })
-  if (session?.user) redirect("/app")
+// Auth state lives in a client-side bearer token (not a cookie), so the server
+// can't tell if the user is already signed in. The form redirects to /app on
+// mount if a token is already present.
+export default function SignUpPage() {
   return <AuthForm mode="sign-up" />
 }

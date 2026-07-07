@@ -1,19 +1,15 @@
 import { readFile } from "node:fs/promises"
 import { join } from "node:path"
 import { NextResponse } from "next/server"
-import { headers } from "next/headers"
-import { auth } from "@/lib/auth"
 
 export const dynamic = "force-dynamic"
 
-// Serves the TradeSafe HTML shell, but only to a signed-in user. Anyone without
-// a session is bounced to the sign-in page.
+// Serves the TradeSafe HTML shell. Auth is enforced client-side via a bearer
+// token (see the bootstrap in tradesafe.html): a full-page navigation can't
+// carry an Authorization header, so the shell loads for everyone but the app
+// immediately redirects to /sign-in if no token is present, and the actual
+// user data is protected by the token on /api/sync.
 export async function GET() {
-  const session = await auth.api.getSession({ headers: await headers() })
-  if (!session?.user) {
-    return NextResponse.redirect(new URL("/sign-in", await baseUrl()))
-  }
-
   const html = await readFile(join(process.cwd(), "private", "tradesafe.html"), "utf8")
   return new NextResponse(html, {
     headers: {
@@ -21,11 +17,4 @@ export async function GET() {
       "cache-control": "no-store",
     },
   })
-}
-
-async function baseUrl() {
-  const h = await headers()
-  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000"
-  const proto = h.get("x-forwarded-proto") ?? "https"
-  return `${proto}://${host}`
 }

@@ -1,8 +1,13 @@
 import { betterAuth } from 'better-auth'
+import { bearer } from 'better-auth/plugins'
 import { pool } from '@/lib/db'
 
 export const auth = betterAuth({
   database: pool,
+  // The bearer plugin lets clients authenticate with an Authorization: Bearer
+  // <token> header instead of a cookie. This is what makes login work inside
+  // Whop's cross-origin iframe, where third-party cookies are blocked.
+  plugins: [bearer()],
   baseURL:
     process.env.BETTER_AUTH_URL ??
     (process.env.VERCEL_PROJECT_PRODUCTION_URL

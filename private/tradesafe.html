@@ -820,6 +820,20 @@
        BEFORE the app boots, then load the app, then keep pushing changes. -->
   <script>
   (function(){
+    var TOKEN_KEY = 'ts_bearer_token';
+    var token = null;
+    try { token = localStorage.getItem(TOKEN_KEY); } catch(e){}
+
+    // Auth is a client-side bearer token (works inside cross-origin iframes like
+    // Whop, where cookies are blocked). No token => not signed in => go log in.
+    if (!token){ window.location.replace('/sign-in'); return; }
+
+    function authHeaders(extra){
+      var h = extra || {};
+      h['Authorization'] = 'Bearer ' + token;
+      return h;
+    }
+
     var SYNC_KEYS = ['rl_account_balance','rl_favorites','rl_instrument_defaults','rl_trades','ts_theme','ts_backtests','ts_size_precision','ts_privacy','ts_rr_period','ts_tod_buckets_journal','ts_tod_buckets_backtest'];
     var UPLOADED_FLAG = 'ts_cloud_seeded';
 
@@ -850,7 +864,7 @@
       pushing = true;
       fetch('/api/sync', {
         method:'PUT',
-        headers:{'content-type':'application/json'},
+        headers: authHeaders({'content-type':'application/json'}),
         body: JSON.stringify({ data: collectLocal() }),
       }).catch(function(){}).finally(function(){
         pushing = false;
@@ -864,13 +878,21 @@
 
     function loadApp(){
       var s = document.createElement('script');
-      s.src = '/app/script?v=24';
+      s.src = '/app/script?v=25';
       document.body.appendChild(s);
     }
 
     // 1. Pull the account's data first.
-    fetch('/api/sync', { headers:{'accept':'application/json'} })
-      .then(function(r){ return r.ok ? r.json() : null; })
+    fetch('/api/sync', { headers: authHeaders({'accept':'application/json'}) })
+      .then(function(r){
+        // Token expired or invalid: clear it and send the user back to log in.
+        if (r.status === 401){
+          try { localStorage.removeItem(TOKEN_KEY); } catch(e){}
+          window.location.replace('/sign-in');
+          return null;
+        }
+        return r.ok ? r.json() : null;
+      })
       .then(function(res){
         var cloud = res && res.data ? res.data : {};
         var cloudHasData = cloud && Object.keys(cloud).length > 0;
