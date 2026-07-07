@@ -76,7 +76,17 @@ const LS = {
   sizePrecision: 'ts_size_precision',
   privacy: 'ts_privacy',
   rrPeriod: 'ts_rr_period',
+  todJournal: 'ts_tod_buckets_journal',
+  todBacktest: 'ts_tod_buckets_backtest',
 };
+// Default customizable time-of-day breakdown (matches the legacy 3-way split).
+function defaultTodBuckets(){
+  return [
+    { label:'Morning', start:'00:00', end:'11:00' },
+    { label:'Midday', start:'11:00', end:'14:00' },
+    { label:'Afternoon', start:'14:00', end:'23:59' },
+  ];
+}
 function load(key, fallback){ try{ const v = localStorage.getItem(key); return v===null? fallback : JSON.parse(v); }catch(e){ return fallback; } }
 function save(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){ console.error('Storage failed', e); } }
 
@@ -93,6 +103,9 @@ let state = {
   sizePrecision: load(LS.sizePrecision, 1), // decimals for position size: 0, 1, or 2
   privacy: load(LS.privacy, false), // blur P&L values on the dashboard
   rrPeriod: load(LS.rrPeriod, 'month'), // avg R:R window: week, month, year, all
+  todJournal: load(LS.todJournal, defaultTodBuckets()),
+  todBacktest: load(LS.todBacktest, defaultTodBuckets()),
+  todEditTarget: null, // 'journal' | 'backtest' while editing buckets
   direction: 'long',
   catFilter: 'all',
   editingTradeId: null,
@@ -711,27 +724,48 @@ function renderSetupChart(){
     }, responsive:true }
   });
 }
-function renderTimeOfDayChart(){
-  const ctx = document.getElementById('todChart');
-  const buckets = {Morning:{wins:0,total:0}, Midday:{wins:0,total:0}, Afternoon:{wins:0,total:0}};
-  state.trades.forEach(t=>{
-    if (t.pnl===null || !t.time) return;
-    const hr = parseInt(t.time.split(':')[0],10);
-    const key = hr<11 ? 'Morning' : hr<14 ? 'Midday' : 'Afternoon';
-    buckets[key].total++; if (t.pnl>0) buckets[key].wins++;
+// ---- customizable time-of-day breakdown ----
+function timeToMin(t){ const [h,m] = String(t||'0:0').split(':').map(Number); return (h||0)*60 + (m||0); }
+// A trade at `min` falls in bucket b if start<=min<end; if end<=start the block wraps past midnight.
+function tradeInBucket(min, b){
+  const s = timeToMin(b.start), e = timeToMin(b.end);
+  if (e <= s) return min >= s || min < e;
+  return min >= s && min < e;
+}
+// Win%/counts per bucket. Break-even and no-trade entries are excluded (consistent with win-rate elsewhere).
+function computeTodStats(trades, buckets){
+  const stats = buckets.map(()=>({ wins:0, total:0 }));
+  trades.forEach(t=>{
+    if (t.pnl===null || t.pnl===undefined || !t.time || t.breakEven || t.noTrade) return;
+    const min = timeToMin(t.time);
+    for (let i=0;i<buckets.length;i++){
+      if (tradeInBucket(min, buckets[i])){ stats[i].total++; if (t.pnl>0) stats[i].wins++; break; }
+    }
   });
-  const labels = Object.keys(buckets);
-  const data = labels.map(k=> buckets[k].total ? Math.round((buckets[k].wins/buckets[k].total)*100) : 0);
-  if (todChartInstance) todChartInstance.destroy();
+  return stats;
+}
+function renderTodChartInto(ctx, prevInstance, trades, buckets, color){
+  if (prevInstance) prevInstance.destroy();
+  const stats = computeTodStats(trades, buckets);
+  const labels = buckets.map(b=> b.label || `${b.start}–${b.end}`);
+  const data = stats.map(s=> s.total ? Math.round((s.wins/s.total)*100) : 0);
+  const counts = stats.map(s=> s.total);
   const th = chartTheme();
-  todChartInstance = new Chart(ctx, {
+  return new Chart(ctx, {
     type:'bar',
-    data:{ labels, datasets:[{ data, backgroundColor:'#5AA9E6', borderRadius:6, maxBarThickness:36 }]},
-    options:{ plugins:{legend:{display:false}}, scales:{
-      x:{ grid:{display:false}, ticks:{color:th.text} },
+    data:{ labels, datasets:[{ data, backgroundColor:color, borderRadius:6, maxBarThickness:36 }]},
+    options:{ plugins:{ legend:{display:false}, tooltip:{ callbacks:{
+      label:(c)=> `${c.parsed.y}% win · ${counts[c.dataIndex]} trade${counts[c.dataIndex]===1?'':'s'}`
+    }}}, scales:{
+      x:{ grid:{display:false}, ticks:{color:th.text, font:{size:10}} },
       y:{ min:0, max:100, grid:{color:th.grid}, ticks:{color:th.text, callback:v=>v+'%'} }
     }, responsive:true }
   });
+}
+function renderTimeOfDayChart(){
+  const ctx = document.getElementById('todChart');
+  if (!ctx) return;
+  todChartInstance = renderTodChartInto(ctx, todChartInstance, state.trades, state.todJournal, '#5AA9E6');
 }
 function renderHeatmap(){
   const el = document.getElementById('heatmap');
@@ -1380,7 +1414,8 @@ function renderEquityChart(){
 /* ================================================================
    BACKTESTING
    ================================================================ */
-let btEquityChartInstance = null;
+  let btEquityChartInstance = null;
+let btTodChartInstance = null;
 
 // Resolve a trade's dollar result. R-multiple trades use the strategy's risk.
 function btTradePnl(trade, strategy){
@@ -1477,7 +1512,13 @@ function renderStrategyDetail(strat){
   document.getElementById('btMaxDD').textContent = st.maxDD ? fmtMoney(-st.maxDD) : '—';
 
   renderBtEquityChart(st);
+  renderBtTimeOfDayChart(strat);
   renderBtTradeList(strat);
+}
+function renderBtTimeOfDayChart(strat){
+  const ctx = document.getElementById('btTodChart');
+  if (!ctx) return;
+  btTodChartInstance = renderTodChartInto(ctx, btTodChartInstance, strat.trades||[], state.todBacktest, '#5AA9E6');
 }
 
 function renderBtEquityChart(st){
@@ -1592,6 +1633,7 @@ function openBtTradeModal(id){
   const t = id ? (strat.trades||[]).find(x=>x.id===id) : null;
   document.getElementById('btTradeModalTitle').textContent = t ? 'Edit simulated trade' : 'Add simulated trade';
   document.getElementById('btDate').value = t ? (t.date||'') : todayISO();
+  document.getElementById('btTime').value = t ? (t.time||'') : '';
   document.getElementById('btInstrument').value = t ? (t.instrument||'') : '';
   document.getElementById('btDirection').value = t ? (t.direction||'Long') : 'Long';
   document.getElementById('btResultType').value = t ? (t.resultType||'dollar') : 'dollar';
@@ -1613,6 +1655,7 @@ function saveBtTrade(){
   const trade = {
     id: state.editingBtTradeId || uid(),
     date: document.getElementById('btDate').value || todayISO(),
+    time: document.getElementById('btTime').value || '',
     instrument: document.getElementById('btInstrument').value.trim(),
     direction,
     noTrade,
@@ -1676,9 +1719,86 @@ function bindBacktestControls(){
 /* ================================================================
    INIT
    ================================================================ */
+/* ---- customizable time-of-day editor modal ---- */
+function openTodEditor(target){
+  state.todEditTarget = target;
+  const src = target==='backtest' ? state.todBacktest : state.todJournal;
+  state._todDraft = (src && src.length ? src : defaultTodBuckets()).map(b=>({...b}));
+  document.getElementById('todModalSubtitle').textContent =
+    target==='backtest' ? 'Backtesting breakdown' : 'Journal breakdown';
+  renderTodEditorRows();
+  document.getElementById('todModal').classList.remove('hidden');
+}
+function closeTodEditor(){
+  document.getElementById('todModal').classList.add('hidden');
+  state.todEditTarget = null; state._todDraft = null;
+}
+function renderTodEditorRows(){
+  const wrap = document.getElementById('todBucketRows');
+  wrap.innerHTML = state._todDraft.map((b,i)=>`
+    <div class="flex items-center gap-2" data-idx="${i}">
+      <input class="tod-label flex-1 min-w-0" type="text" placeholder="Label (e.g. Open)" value="${(b.label||'').replace(/"/g,'&quot;')}" />
+      <input class="tod-start w-24 shrink-0" type="time" value="${b.start||''}" />
+      <span class="text-faint text-xs shrink-0">to</span>
+      <input class="tod-end w-24 shrink-0" type="time" value="${b.end||''}" />
+      <button type="button" class="tod-remove shrink-0 text-loss text-xl leading-none px-1 hover:opacity-70" title="Remove block" aria-label="Remove block">&times;</button>
+    </div>`).join('');
+}
+function syncTodDraftFromDom(){
+  const rows = [...document.querySelectorAll('#todBucketRows [data-idx]')];
+  state._todDraft = rows.map(r=>({
+    label: r.querySelector('.tod-label').value.trim(),
+    start: r.querySelector('.tod-start').value || '00:00',
+    end: r.querySelector('.tod-end').value || '00:00',
+  }));
+}
+function saveTodEditor(){
+  syncTodDraftFromDom();
+  const buckets = state._todDraft.filter(b=> b.start && b.end);
+  if (!buckets.length){ toast('Add at least one time block'); return; }
+  const target = state.todEditTarget;
+  if (target==='backtest'){ state.todBacktest = buckets; save(LS.todBacktest, buckets); }
+  else { state.todJournal = buckets; save(LS.todJournal, buckets); }
+  closeTodEditor();
+  if (target==='backtest'){
+    const s = state.backtests.find(x=>x.id===state.selectedBacktestId);
+    if (s) renderBtTimeOfDayChart(s);
+  } else {
+    renderTimeOfDayChart();
+  }
+  toast('Time breakdown updated');
+}
+function bindTodEditor(){
+  const jb = document.getElementById('todCustomizeBtn');
+  if (jb) jb.addEventListener('click', ()=> openTodEditor('journal'));
+  const bb = document.getElementById('btTodCustomizeBtn');
+  if (bb) bb.addEventListener('click', ()=> openTodEditor('backtest'));
+  document.getElementById('todModalClose').addEventListener('click', closeTodEditor);
+  document.getElementById('todCancelBtn').addEventListener('click', closeTodEditor);
+  document.getElementById('todSaveBtn').addEventListener('click', saveTodEditor);
+  document.getElementById('todResetBtn').addEventListener('click', ()=>{
+    state._todDraft = defaultTodBuckets(); renderTodEditorRows();
+  });
+  document.getElementById('todAddBtn').addEventListener('click', ()=>{
+    syncTodDraftFromDom();
+    state._todDraft.push({ label:'', start:'', end:'' });
+    renderTodEditorRows();
+  });
+  // Remove buttons are delegated since rows are re-rendered.
+  document.getElementById('todBucketRows').addEventListener('click', (e)=>{
+    const btn = e.target.closest('.tod-remove');
+    if (!btn) return;
+    const idx = parseInt(btn.closest('[data-idx]').dataset.idx, 10);
+    syncTodDraftFromDom();
+    state._todDraft.splice(idx, 1);
+    renderTodEditorRows();
+  });
+}
+
 function init(){
   applyTheme();
   hideIntro();
+  bindTodEditor();
   const tt = document.getElementById('themeToggle');
   if (tt) tt.addEventListener('click', toggleTheme);
   const ttm = document.getElementById('themeToggleMobile');

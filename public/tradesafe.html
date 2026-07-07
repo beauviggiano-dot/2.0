@@ -425,7 +425,10 @@
             <div class="h-40"><canvas id="setupChart"></canvas></div>
           </div>
           <div class="bg-panel border border-line rounded-xl p-5">
-            <h2 class="font-display font-semibold text-sm mb-3">Win % by Time of Day</h2>
+            <div class="flex items-center justify-between mb-3">
+              <h2 class="font-display font-semibold text-sm">Win % by Time of Day</h2>
+              <button id="todCustomizeBtn" class="text-xs text-gold hover:underline">Customize</button>
+            </div>
             <div class="h-40"><canvas id="todChart"></canvas></div>
           </div>
         </div>
@@ -564,6 +567,15 @@
               <div class="bg-panel border border-line rounded-xl p-5">
                 <h3 class="font-display font-semibold text-sm mb-3">Equity Curve</h3>
                 <div class="h-56"><canvas id="btEquityChart"></canvas></div>
+              </div>
+
+              <!-- Win % by time of day -->
+              <div class="bg-panel border border-line rounded-xl p-5">
+                <div class="flex items-center justify-between mb-3">
+                  <h3 class="font-display font-semibold text-sm">Win % by Time of Day</h3>
+                  <button id="btTodCustomizeBtn" class="text-xs text-gold hover:underline">Customize</button>
+                </div>
+                <div class="h-56"><canvas id="btTodChart"></canvas></div>
               </div>
 
               <!-- Simulated trades -->
@@ -747,6 +759,7 @@
       </div>
       <div class="grid sm:grid-cols-2 gap-4">
         <div><label class="fld">Date</label><input id="btDate" type="date" /></div>
+        <div><label class="fld">Time <span class="text-faint">(for time-of-day breakdown)</span></label><input id="btTime" type="time" /></div>
         <div><label class="fld">Instrument</label><input id="btInstrument" type="text" placeholder="e.g. ES" /></div>
         <div><label class="fld">Direction</label><select id="btDirection"><option>Long</option><option>Short</option><option value="No trade">No trade</option></select></div>
         <div id="btResultTypeWrap"><label class="fld">Result type</label><select id="btResultType"><option value="dollar">Dollar P&amp;L</option><option value="r">R-multiple</option></select></div>
@@ -771,9 +784,29 @@
     </div>
   </div>
 
+  <!-- ============ TIME-OF-DAY BUCKETS MODAL ============ -->
+  <div id="todModal" class="hidden fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 bg-black/60 overflow-y-auto">
+    <div class="bg-panel border border-line rounded-2xl w-full max-w-lg p-6 my-6">
+      <div class="flex items-start justify-between mb-1">
+        <h2 class="font-display font-semibold text-lg">Customize Time of Day</h2>
+        <button id="todModalClose" class="text-faint hover:text-loss text-2xl leading-none">&times;</button>
+      </div>
+      <p class="text-xs text-muted mb-5"><span id="todModalSubtitle">Journal breakdown</span> — define your own time blocks. A trade counts toward the first block that contains its time. Blocks whose end is before their start wrap past midnight.</p>
+      <div id="todBucketRows" class="space-y-2"></div>
+      <button id="todAddBtn" type="button" class="btn-ghost text-sm mt-3">+ Add time block</button>
+      <div class="flex items-center justify-between mt-6">
+        <button id="todResetBtn" type="button" class="text-faint text-sm hover:underline">Reset to default</button>
+        <div class="flex gap-2 ml-auto">
+          <button id="todCancelBtn" type="button" class="btn-ghost text-sm">Cancel</button>
+          <button id="todSaveBtn" type="button" class="btn-gold text-sm">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- TOAST -->
   <div id="toast" class="hidden fixed bottom-20 lg:bottom-6 left-1/2 -translate-x-1/2 z-[60] bg-panel2 border border-gold/40 text-sm px-4 py-2.5 rounded-lg shadow-lg"></div>
 
-  <script src="/tradesafe.js?v=18"></script>
+  <script src="/tradesafe.js?v=19"></script>
 </body>
 </html>
