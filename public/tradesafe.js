@@ -1159,7 +1159,8 @@ function renderDashboard(){
   document.getElementById('statTodayPnl').className = 'num sensitive text-xl font-semibold ' + (todayPnl>0?'text-profit':todayPnl<0?'text-loss':'');
 
   const cutoff = new Date(); cutoff.setDate(cutoff.getDate()-30);
-  const recent = state.trades.filter(t=> t.pnl!==null && new Date(t.date) >= cutoff);
+  // Break-even trades are excluded from win rate so they aren't counted against wins.
+  const recent = state.trades.filter(t=> !t.breakEven && t.pnl!==null && new Date(t.date) >= cutoff);
   const wins = recent.filter(t=>t.pnl>0).length;
   document.getElementById('statWinRate').textContent = recent.length ? Math.round((wins/recent.length)*100)+'%' : '—';
   document.getElementById('statTradeCount').textContent = state.trades.length;
