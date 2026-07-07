@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 10, "column": 0}, "map": {"version":3,"sources":["file:///vercel/share/v0-project/app/page.tsx"],"sourcesContent":["import { redirect } from \"next/navigation\"\n\n// Everything lives behind auth now: send visitors to the gated app entry,\n// which will bounce them to /sign-in if they don't have a session.\nexport default function Page() {\n  redirect(\"/app\")\n}\n"],"names":["Page"],"mappings":";;;;AAAA;AAAA;;AAIe,SAASA;IACtB,IAAA,kWAAQ,EAAC;AACX"}}]
+}
