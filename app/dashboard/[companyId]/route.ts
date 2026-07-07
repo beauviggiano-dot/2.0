@@ -3,8 +3,8 @@ import { serveTradeSafe } from "@/lib/serve-app"
 
 export const dynamic = "force-dynamic"
 
-// Root fallback. Whop's configured "App path" is /experiences/[experienceId],
-// but we also serve the app at / so direct/simple loads still work.
+// Whop's standard "Dashboard path" (admin/owner view). Set this exact path in
+// your Whop app's Hosting settings: /dashboard/[companyId].
 export async function GET() {
   return serveTradeSafe(await headers())
 }
