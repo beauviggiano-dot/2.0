@@ -444,6 +444,7 @@ function openTradeModal(tradeId, prefill){
   document.getElementById('tSize').value = d.size ?? '';
   document.getElementById('tRisk').value = d.risk ?? '';
   document.getElementById('tPnl').value = d.pnl ?? '';
+  document.getElementById('tBreakEven').checked = !!d.breakEven;
   document.getElementById('tSetup').value = d.setup || '';
   document.getElementById('tTags').value = (d.tags||[]).join(', ');
   document.getElementById('tPreCatalyst').value = d.preCatalyst || '';
@@ -502,6 +503,7 @@ document.getElementById('tradeSaveBtn').addEventListener('click', ()=>{
     size: parseFloat(document.getElementById('tSize').value) || null,
     risk: parseFloat(document.getElementById('tRisk').value) || null,
     pnl: pnlInput==='' ? null : parseFloat(pnlInput),
+    breakEven: document.getElementById('tBreakEven').checked,
     setup: document.getElementById('tSetup').value.trim(),
     tags: document.getElementById('tTags').value.split(',').map(s=>s.trim()).filter(Boolean),
     preCatalyst: document.getElementById('tPreCatalyst').value,
@@ -544,6 +546,7 @@ function openDetailModal(tradeId){
   if (!t) return;
   document.getElementById('detailTitle').textContent = `${t.instrument} · ${t.direction} · ${t.date}`;
   const pnlColor = t.pnl>0 ? 'text-profit' : t.pnl<0 ? 'text-loss' : 'text-muted';
+  const rDisplay = t.breakEven ? 'Break-even' : (t.rMultiple!==null && t.rMultiple!==undefined ? t.rMultiple.toFixed(2)+'R' : '—');
   document.getElementById('detailBody').innerHTML = `
     <div class="grid grid-cols-2 gap-3">
       <div><div class="text-[11px] text-faint uppercase">Entry</div><div class="num">${t.entry ?? '—'}</div></div>
@@ -551,7 +554,7 @@ function openDetailModal(tradeId){
       <div><div class="text-[11px] text-faint uppercase">Size</div><div class="num">${t.size ?? '—'}</div></div>
       <div><div class="text-[11px] text-faint uppercase">Planned risk</div><div class="num">${fmtMoney(t.risk)}</div></div>
       <div><div class="text-[11px] text-faint uppercase">P&amp;L</div><div class="num font-semibold ${pnlColor}">${t.pnl!==null?fmtMoney(t.pnl):'Open'}</div></div>
-      <div><div class="text-[11px] text-faint uppercase">R multiple</div><div class="num">${t.rMultiple!==null && t.rMultiple!==undefined ? t.rMultiple.toFixed(2)+'R' : '—'}</div></div>
+      <div><div class="text-[11px] text-faint uppercase">R multiple</div><div class="num">${rDisplay}</div></div>
     </div>
     ${t.setup? `<div><div class="text-[11px] text-faint uppercase mb-1">Setup</div><div>${t.setup}</div></div>` : ''}
     ${t.tags && t.tags.length ? `<div class="flex flex-wrap gap-1">${t.tags.map(tag=>`<span class="chip on px-2 py-0.5 rounded-full text-xs">${tag}</span>`).join('')}</div>` : ''}
@@ -609,13 +612,13 @@ function renderJournal(){
       <div class="flex items-center gap-3 min-w-0">
         <span class="text-xs font-medium border ${dirColor} rounded-md px-2 py-1">${t.direction}</span>
         <div class="min-w-0">
-          <div class="font-semibold text-sm flex items-center gap-2">${t.instrument} ${t.setup?`<span class="text-faint font-normal text-xs">· ${t.setup}</span>`:''}</div>
+          <div class="font-semibold text-sm flex items-center gap-2">${t.instrument} ${t.breakEven?`<span class="text-[10px] font-medium border border-line text-muted rounded px-1.5 py-0.5">BE</span>`:''} ${t.setup?`<span class="text-faint font-normal text-xs">· ${t.setup}</span>`:''}</div>
           <div class="text-xs text-muted">${t.date} ${t.time}</div>
         </div>
       </div>
       <div class="text-right shrink-0">
         <div class="num font-semibold ${pnlColor}">${t.pnl!==null? fmtMoney(t.pnl) : 'Open'}</div>
-        <div class="text-xs text-faint num">${t.rMultiple!==null && t.rMultiple!==undefined ? t.rMultiple.toFixed(2)+'R' : ''}</div>
+        <div class="text-xs text-faint num">${t.breakEven ? 'break-even' : (t.rMultiple!==null && t.rMultiple!==undefined ? t.rMultiple.toFixed(2)+'R' : '')}</div>
       </div>
     `;
     row.addEventListener('click', ()=> openDetailModal(t.id));
@@ -644,7 +647,7 @@ document.getElementById('filterDateClear').addEventListener('click', ()=>{
 
 document.getElementById('exportCsvBtn').addEventListener('click', ()=>{
   if (!state.trades.length){ toast('No trades to export yet.'); return; }
-  const cols = ['date','time','instrument','direction','entry','exit','size','risk','pnl','rMultiple','setup','tags','newsEvent','preCatalyst','prePlan','preEmotion','postRules','postChange','postEmotion'];
+  const cols = ['date','time','instrument','direction','entry','exit','size','risk','pnl','rMultiple','breakEven','setup','tags','newsEvent','preCatalyst','prePlan','preEmotion','postRules','postChange','postEmotion'];
   const rows = [cols.join(',')];
   state.trades.forEach(t=>{
     const row = cols.map(c=>{
@@ -1088,8 +1091,9 @@ function renderAvgRR(){
   });
 
   // Only closed trades with a valid R multiple (needs both risk and pnl).
+  // Break-even trades are excluded so a scratch trade doesn't skew the ratio.
   const rs = state.trades
-    .filter(t=> t.rMultiple!==null && t.rMultiple!==undefined && (!start || new Date(t.date+'T00:00:00') >= start))
+    .filter(t=> !t.breakEven && t.rMultiple!==null && t.rMultiple!==undefined && (!start || new Date(t.date+'T00:00:00') >= start))
     .map(t=> t.rMultiple);
 
   document.getElementById('rrPeriodLabel').textContent = meta.label;
@@ -1354,10 +1358,13 @@ function btStats(strategy){
   let equity = start, peak = start, maxDD = 0;
   let wins = 0, losses = 0, grossWin = 0, grossLoss = 0, net = 0;
   const curve = [{ label: 'Start', value: start }];
+  let breakEvens = 0;
   trades.forEach((t,i)=>{
     const pnl = btTradePnl(t, strategy);
-    net += pnl; equity += pnl;
-    if (pnl > 0){ wins++; grossWin += pnl; }
+    net += pnl; equity += pnl; // real dollars always count toward the curve
+    // Break-even trades are excluded from win/loss & risk:reward stats.
+    if (t.breakEven){ breakEvens++; }
+    else if (pnl > 0){ wins++; grossWin += pnl; }
     else if (pnl < 0){ losses++; grossLoss += Math.abs(pnl); }
     peak = Math.max(peak, equity);
     maxDD = Math.max(maxDD, peak - equity);
@@ -1365,7 +1372,7 @@ function btStats(strategy){
   });
   const decided = wins + losses;
   return {
-    trades, count: trades.length, net, wins, losses,
+    trades, count: trades.length, net, wins, losses, breakEvens,
     winRate: decided ? (wins/decided)*100 : 0,
     profitFactor: grossLoss ? grossWin/grossLoss : (grossWin ? Infinity : 0),
     expectancy: trades.length ? net/trades.length : 0,
@@ -1464,13 +1471,15 @@ function renderBtTradeList(strat){
     : 'No trades yet — add simulated trades to test this strategy.';
   list.innerHTML = trades.map(t=>{
     const pnl = btTradePnl(t, strat);
-    const pnlClass = pnl>0?'text-profit':pnl<0?'text-loss':'text-muted';
+    const pnlClass = t.breakEven ? 'text-muted' : pnl>0?'text-profit':pnl<0?'text-loss':'text-muted';
     const resultLabel = t.resultType==='r' ? `${t.r>0?'+':''}${fmtNum(t.r,2)}R` : fmtMoney(pnl);
+    const beBadge = t.breakEven ? `<span class="text-[10px] font-medium border border-line text-muted rounded px-1.5 py-0.5 shrink-0">BE</span>` : '';
     return `<button class="bt-trade-item w-full text-left bg-panel2 border border-line rounded-xl px-4 py-3 flex items-center gap-4 hover:border-goldSoft" data-id="${t.id}">
         <div class="w-24 text-xs num text-muted shrink-0">${t.date || '—'}</div>
         <div class="w-14 text-xs font-semibold shrink-0">${t.instrument || '—'}</div>
         <div class="w-14 text-xs shrink-0 ${t.direction==='Short'?'text-loss':'text-profit'}">${t.direction || ''}</div>
         <div class="flex-1 min-w-0 text-sm truncate text-muted">${t.notes || ''}</div>
+        ${beBadge}
         <div class="num text-sm font-semibold shrink-0 ${pnlClass}">${resultLabel}</div>
       </button>`;
   }).join('');
@@ -1540,6 +1549,7 @@ function openBtTradeModal(id){
   document.getElementById('btPnl').value = t && t.resultType!=='r' ? (t.pnl ?? '') : '';
   document.getElementById('btR').value = t && t.resultType==='r' ? (t.r ?? '') : '';
   document.getElementById('btNotes').value = t ? (t.notes||'') : '';
+  document.getElementById('btBreakEven').checked = t ? !!t.breakEven : false;
   document.getElementById('btTradeDeleteBtn').classList.toggle('hidden', !t);
   syncBtResultType();
   document.getElementById('btTradeModal').classList.remove('hidden');
@@ -1557,6 +1567,7 @@ function saveBtTrade(){
     resultType,
     pnl: resultType==='dollar' ? (parseFloat(document.getElementById('btPnl').value) || 0) : null,
     r: resultType==='r' ? (parseFloat(document.getElementById('btR').value) || 0) : null,
+    breakEven: document.getElementById('btBreakEven').checked,
     notes: document.getElementById('btNotes').value.trim(),
   };
   strat.trades = strat.trades || [];
