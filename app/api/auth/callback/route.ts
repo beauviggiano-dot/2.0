@@ -26,22 +26,30 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL("/?error=state", base))
   }
 
-  const accessToken = await exchangeCode(code)
+  const withDetail = (path: string, detail?: string) => {
+    const url = new URL(path, base)
+    if (detail) url.searchParams.set("detail", detail)
+    return url
+  }
+
+  const { token: accessToken, detail: tokenDetail } = await exchangeCode(code)
   if (!accessToken) {
-    return NextResponse.redirect(new URL("/?error=token", base))
+    return NextResponse.redirect(withDetail("/?error=token", tokenDetail))
   }
 
-  const user = await getMe(accessToken)
+  const { user, detail: userDetail } = await getMe(accessToken)
   if (!user) {
-    return NextResponse.redirect(new URL("/?error=user", base))
+    return NextResponse.redirect(withDetail("/?error=user", userDetail))
   }
 
-  const access = await userHasAccess(accessToken)
+  const { access, detail: accessDetail } = await userHasAccess(accessToken)
 
   // Build our own signed session. If they don't have access we still record who
   // they are so the "members only" screen can offer a tailored purchase link.
   const session = newSession({ userId: user.id, username: user.username, access })
-  const res = NextResponse.redirect(new URL(access ? "/" : "/?error=no_access", base))
+  const res = NextResponse.redirect(
+    access ? new URL("/", base) : withDetail("/?error=no_access", accessDetail),
+  )
   res.cookies.set(SESSION_COOKIE, encodeSession(session), {
     httpOnly: true,
     secure: true,

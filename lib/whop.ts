@@ -58,43 +58,73 @@ type TokenResponse = {
 }
 
 // Exchange the authorization code for a user access token.
-export async function exchangeCode(code: string): Promise<string | null> {
+// Returns the token, or a short diagnostic string explaining the failure.
+export async function exchangeCode(
+  code: string,
+): Promise<{ token: string | null; detail?: string }> {
   const { clientId, clientSecret, redirectUri } = getConfig()
-  const res = await fetch(TOKEN_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({
-      grant_type: "authorization_code",
-      code,
-      client_id: clientId,
-      client_secret: clientSecret,
-      redirect_uri: redirectUri,
-    }),
-    cache: "no-store",
-  })
-  const data = (await res.json().catch(() => ({}))) as TokenResponse
-  if (!res.ok || !data.access_token) {
-    console.log("[v0] Whop token exchange failed:", res.status, data.error, data.error_description)
-    return null
+
+  // Whop's OAuth token endpoint historically accepts JSON, but OAuth 2.x
+  // standardises on form-encoding. Try JSON first, then fall back to form.
+  const payload = {
+    grant_type: "authorization_code",
+    code,
+    client_id: clientId || "",
+    client_secret: clientSecret || "",
+    redirect_uri: redirectUri,
   }
-  return data.access_token
+
+  async function attempt(mode: "json" | "form") {
+    const res = await fetch(TOKEN_URL, {
+      method: "POST",
+      headers:
+        mode === "json"
+          ? { "Content-Type": "application/json", Accept: "application/json" }
+          : { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
+      body:
+        mode === "json"
+          ? JSON.stringify(payload)
+          : new URLSearchParams(payload).toString(),
+      cache: "no-store",
+    })
+    const data = (await res.json().catch(() => ({}))) as TokenResponse
+    return { res, data }
+  }
+
+  let { res, data } = await attempt("json")
+  if (!res.ok || !data.access_token) {
+    // Retry with form encoding before giving up.
+    const retry = await attempt("form")
+    res = retry.res
+    data = retry.data
+  }
+
+  if (!res.ok || !data.access_token) {
+    const detail = `token ${res.status} ${data.error || ""} ${data.error_description || ""}`.trim()
+    console.log("[v0] Whop token exchange failed:", detail)
+    return { token: null, detail }
+  }
+  return { token: data.access_token }
 }
 
 type WhopUser = { id: string; username?: string }
 
 // Fetch the logged-in user's profile using their access token.
-export async function getMe(accessToken: string): Promise<WhopUser | null> {
+export async function getMe(
+  accessToken: string,
+): Promise<{ user: WhopUser | null; detail?: string }> {
   const res = await fetch(`${API_BASE}/me`, {
     headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" },
     cache: "no-store",
   })
   if (!res.ok) {
-    console.log("[v0] Whop /me failed:", res.status)
-    return null
+    const detail = `me ${res.status}`
+    console.log("[v0] Whop /me failed:", detail)
+    return { user: null, detail }
   }
   const data = (await res.json().catch(() => ({}))) as WhopUser
-  if (!data?.id) return null
-  return data
+  if (!data?.id) return { user: null, detail: "me no-id" }
+  return { user: data }
 }
 
 type Membership = {
@@ -102,6 +132,7 @@ type Membership = {
   product_id?: string
   access_pass_id?: string
   plan_id?: string
+  company_buyer_id?: string
   valid?: boolean
   status?: string
 }
@@ -110,24 +141,40 @@ type MembershipsResponse = { data?: Membership[] }
 
 // Determine whether the user currently holds a *valid* membership to the
 // required product / access pass. This is the core gate.
-export async function userHasAccess(accessToken: string): Promise<boolean> {
+export async function userHasAccess(
+  accessToken: string,
+): Promise<{ access: boolean; detail?: string }> {
   const { productId } = getConfig()
-  if (!productId) return false
+  if (!productId) return { access: false, detail: "no product configured" }
 
-  const res = await fetch(`${API_BASE}/me/memberships?valid=true&per=50`, {
+  const res = await fetch(`${API_BASE}/me/memberships?per=50`, {
     headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" },
     cache: "no-store",
   })
   if (!res.ok) {
-    console.log("[v0] Whop /me/memberships failed:", res.status)
-    return false
+    const detail = `memberships ${res.status}`
+    console.log("[v0] Whop /me/memberships failed:", detail)
+    return { access: false, detail }
   }
   const data = (await res.json().catch(() => ({}))) as MembershipsResponse
   const memberships = data.data || []
 
-  return memberships.some((m) => {
-    const matchesProduct = m.product_id === productId || m.access_pass_id === productId
+  const hit = memberships.find((m) => {
+    // Match against every id field Whop might use for the product/access pass.
+    const matches =
+      m.product_id === productId ||
+      m.access_pass_id === productId ||
+      m.plan_id === productId
     const isValid = m.valid === true || m.status === "active" || m.status === "completed"
-    return matchesProduct && isValid
+    return matches && isValid
   })
+
+  if (hit) return { access: true }
+
+  // Not found: report what we saw so misconfigured product ids are easy to spot.
+  const seen = memberships
+    .map((m) => `${m.product_id || m.access_pass_id || m.plan_id || "?"}:${m.status || (m.valid ? "valid" : "invalid")}`)
+    .join(",")
+  const detail = `no match for ${productId}; ${memberships.length} membership(s): ${seen || "none"}`
+  return { access: false, detail }
 }

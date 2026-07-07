@@ -7,13 +7,13 @@ import { AppFrame } from "@/components/app-frame"
 export const dynamic = "force-dynamic"
 
 type PageProps = {
-  searchParams: Promise<{ error?: string }>
+  searchParams: Promise<{ error?: string; detail?: string }>
 }
 
 // Server component gate. Reads the signed session cookie and decides what the
 // visitor sees: the real app, a "members only" screen, or the login screen.
 export default async function Page({ searchParams }: PageProps) {
-  const { error } = await searchParams
+  const { error, detail } = await searchParams
   const { checkoutUrl, missing } = getConfig()
   const store = await cookies()
   const session = decodeSession(store.get(SESSION_COOKIE)?.value)
@@ -42,7 +42,7 @@ export default async function Page({ searchParams }: PageProps) {
 
   // Came back from Whop with a specific error.
   if (error === "no_access") {
-    return <GateScreen variant="no_access" checkoutUrl={checkoutUrl} />
+    return <GateScreen variant="no_access" checkoutUrl={checkoutUrl} detail={detail} />
   }
   if (error && error !== "no_access") {
     const messages: Record<string, string> = {
@@ -51,7 +51,7 @@ export default async function Page({ searchParams }: PageProps) {
       token: "We couldn't verify your Whop login. Please try again.",
       user: "We couldn't load your Whop profile. Please try again.",
     }
-    return <GateScreen variant="error" message={messages[error]} />
+    return <GateScreen variant="error" message={messages[error]} detail={detail} />
   }
 
   // Default: not logged in.
