@@ -74,6 +74,7 @@ const LS = {
   theme: 'ts_theme',
   backtests: 'ts_backtests',
   sizePrecision: 'ts_size_precision',
+  privacy: 'ts_privacy',
 };
 function load(key, fallback){ try{ const v = localStorage.getItem(key); return v===null? fallback : JSON.parse(v); }catch(e){ return fallback; } }
 function save(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){ console.error('Storage failed', e); } }
@@ -89,6 +90,7 @@ let state = {
   selected: INSTRUMENTS[0],
   riskMode: 'dollar', // or 'percent'
   sizePrecision: load(LS.sizePrecision, 1), // decimals for position size: 0, 1, or 2
+  privacy: load(LS.privacy, false), // blur P&L values on the dashboard
   direction: 'long',
   catFilter: 'all',
   editingTradeId: null,
@@ -1037,6 +1039,20 @@ function renderCalendarMonth(){
 /* ================================================================
    DASHBOARD
    ================================================================ */
+/* ---------- Privacy blur (hide P&L while streaming) ---------- */
+function applyPrivacy(){
+  document.body.classList.toggle('privacy-on', state.privacy);
+  const btn = document.getElementById('privacyToggle');
+  const label = document.getElementById('privacyLabel');
+  if (btn) btn.setAttribute('aria-pressed', String(state.privacy));
+  if (label) label.textContent = state.privacy ? 'Show P&L' : 'Hide P&L';
+}
+document.getElementById('privacyToggle').addEventListener('click', ()=>{
+  state.privacy = !state.privacy;
+  save(LS.privacy, state.privacy);
+  applyPrivacy();
+});
+
 function renderDashboard(){
   document.getElementById('todayDate').textContent = new Date().toLocaleDateString(undefined,{weekday:'long', month:'long', day:'numeric'});
   const hr = new Date().getHours();
@@ -1046,10 +1062,7 @@ function renderDashboard(){
   const todayTrades = state.trades.filter(t=>t.date===today);
   const todayPnl = todayTrades.reduce((s,t)=> s + (t.pnl||0), 0);
   document.getElementById('statTodayPnl').textContent = fmtMoney(todayPnl);
-  document.getElementById('statTodayPnl').className = 'num text-xl font-semibold ' + (todayPnl>0?'text-profit':todayPnl<0?'text-loss':'');
-
-  const openRisk = todayTrades.filter(t=>t.pnl===null).reduce((s,t)=> s + (t.risk||0), 0);
-  document.getElementById('statOpenRisk').textContent = fmtMoney(openRisk);
+  document.getElementById('statTodayPnl').className = 'num sensitive text-xl font-semibold ' + (todayPnl>0?'text-profit':todayPnl<0?'text-loss':'');
 
   const cutoff = new Date(); cutoff.setDate(cutoff.getDate()-30);
   const recent = state.trades.filter(t=> t.pnl!==null && new Date(t.date) >= cutoff);
@@ -1064,7 +1077,7 @@ function renderDashboard(){
     const pnlColor = t.pnl>0?'text-profit':t.pnl<0?'text-loss':'text-muted';
     return `<div class="flex items-center justify-between text-sm border-b border-line last:border-0 pb-2 last:pb-0">
       <div><span class="font-semibold">${t.instrument}</span> <span class="text-faint text-xs">${t.date}</span></div>
-      <div class="num ${pnlColor}">${t.pnl!==null?fmtMoney(t.pnl):'Open'}</div>
+      <div class="num sensitive ${pnlColor}">${t.pnl!==null?fmtMoney(t.pnl):'Open'}</div>
     </div>`;
   }).join('') : '<div class="text-muted text-sm">No trades yet — log your first from the Risk Sizer.</div>';
 
@@ -1168,7 +1181,7 @@ function renderTradeCalMonth(){
     if (day && inMonth){
       cellBg = day.pnl>0 ? 'bg-profit/10' : day.pnl<0 ? 'bg-loss/10' : 'bg-panel';
       const c = day.pnl>0 ? 'text-profit' : day.pnl<0 ? 'text-loss' : 'text-muted';
-      pnlHtml = `<div class="num text-[11px] font-semibold ${c} mt-1 truncate">${fmtMoney(day.pnl)}</div>
+      pnlHtml = `<div class="num sensitive text-[11px] font-semibold ${c} mt-1 truncate">${fmtMoney(day.pnl)}</div>
         <div class="text-[9px] text-faint">${day.count} trade${day.count>1?'s':''}</div>`;
     }
     html += `<div class="${cellBg} min-h-[68px] p-1.5 ${inMonth?'':'opacity-40'}">
@@ -1184,7 +1197,7 @@ function renderTradeCalMonth(){
   document.getElementById('tcStat3Label').textContent = 'Red days';
   const s1 = document.getElementById('tcStat1');
   s1.textContent = fmtMoney(monthPnl);
-  s1.className = 'num font-semibold ' + (monthPnl>0?'text-profit':monthPnl<0?'text-loss':'');
+  s1.className = 'num sensitive font-semibold ' + (monthPnl>0?'text-profit':monthPnl<0?'text-loss':'');
   document.getElementById('tcStat2').textContent = green;
   document.getElementById('tcStat3').textContent = red;
 }
@@ -1210,7 +1223,7 @@ function renderTradeCalYear(){
     const hover = mm.pnl>0 ? 'hover:border-profit/40' : mm.pnl<0 ? 'hover:border-loss/40' : 'hover:border-gold/40';
     html += `<button class="tc-month-card bg-panel2 border border-line rounded-xl p-4 text-left ${hover} transition" data-month="${m}">
         <div class="text-sm font-semibold">${names[m]}</div>
-        <div class="num text-lg font-semibold mt-1 ${c}">${mm.count?fmtMoney(mm.pnl):'—'}</div>
+        <div class="num sensitive text-lg font-semibold mt-1 ${c}">${mm.count?fmtMoney(mm.pnl):'—'}</div>
         <div class="text-[10px] text-faint mt-0.5">${mm.count} trade${mm.count===1?'':'s'}</div>
       </button>`;
   }
@@ -1230,7 +1243,7 @@ function renderTradeCalYear(){
   document.getElementById('tcStat3Label').textContent = 'Red months';
   const s1 = document.getElementById('tcStat1');
   s1.textContent = fmtMoney(yearPnl);
-  s1.className = 'num font-semibold ' + (yearPnl>0?'text-profit':yearPnl<0?'text-loss':'');
+  s1.className = 'num sensitive font-semibold ' + (yearPnl>0?'text-profit':yearPnl<0?'text-loss':'');
   document.getElementById('tcStat2').textContent = green;
   document.getElementById('tcStat3').textContent = red;
 }
@@ -1544,6 +1557,7 @@ function init(){
   setRiskMode('dollar');
   setDirection('long');
   updatePrecisionButtons();
+  applyPrivacy();
   selectInstrument('ES');
   renderInstrumentList();
   renderDashboard();
