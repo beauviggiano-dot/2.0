@@ -109,7 +109,7 @@ let state = {
   direction: 'long',
   catFilter: 'all',
   editingTradeId: null,
-  pendingScreenshot: null,
+  pendingScreenshots: [], // data URLs for the trade being edited
   tradeCalAnchor: new Date(), // dashboard trade calendar current period
   tradeCalMode: 'month',      // 'month' or 'year'
 };
@@ -441,7 +441,7 @@ document.getElementById('accountSaveBtn').addEventListener('click', ()=>{
    ================================================================ */
 function openTradeModal(tradeId, prefill){
   state.editingTradeId = tradeId;
-  state.pendingScreenshot = null;
+  state.pendingScreenshots = [];
   const trade = tradeId ? state.trades.find(t=>t.id===tradeId) : null;
   document.getElementById('tradeModalTitle').textContent = tradeId ? 'Edit journal entry' : 'New journal entry';
   document.getElementById('tradeDeleteBtn').classList.toggle('hidden', !tradeId);
@@ -466,12 +466,34 @@ function openTradeModal(tradeId, prefill){
   document.getElementById('tPostChange').value = d.postChange || '';
   document.getElementById('tPostEmotion').value = d.postEmotion || '';
 
-  const preview = document.getElementById('tScreenshotPreview');
-  if (trade && trade.screenshot){ preview.src = trade.screenshot; preview.classList.remove('hidden'); state.pendingScreenshot = trade.screenshot; }
-  else { preview.classList.add('hidden'); preview.src=''; }
+  // Screenshots: support both the new `screenshots` array and the legacy single `screenshot`.
+  state.pendingScreenshots = (d.screenshots && d.screenshots.length)
+    ? [...d.screenshots]
+    : (d.screenshot ? [d.screenshot] : []);
+  renderScreenshotList();
   document.getElementById('tScreenshot').value = '';
 
+  syncTradeDirection();
   document.getElementById('tradeModal').classList.remove('hidden');
+}
+
+// Show/hide trade-specific fields when the entry is a "No trade" day.
+function syncTradeDirection(){
+  const noTrade = document.getElementById('tDirection').value === 'No trade';
+  ['tInstrumentWrap','tSetupWrap','tSizeWrap','tEntryWrap','tExitWrap','tRiskWrap','tPnlWrap','tBreakEvenWrap']
+    .forEach(id=> document.getElementById(id).classList.toggle('hidden', noTrade));
+  document.getElementById('tNoTradeNote').classList.toggle('hidden', !noTrade);
+}
+
+// Render removable thumbnails for the pending screenshots.
+function renderScreenshotList(){
+  const list = document.getElementById('tScreenshotList');
+  list.classList.toggle('hidden', state.pendingScreenshots.length===0);
+  list.innerHTML = state.pendingScreenshots.map((src,i)=>`
+    <div class="relative group">
+      <img src="${src}" class="rounded-lg border border-line w-full h-20 object-cover" alt="Trade screenshot ${i+1}" />
+      <button type="button" class="ss-remove absolute top-1 right-1 w-5 h-5 rounded-full bg-black/70 text-white text-xs leading-none flex items-center justify-center hover:bg-loss" data-idx="${i}" aria-label="Remove screenshot">&times;</button>
+    </div>`).join('');
 }
 document.getElementById('newTradeBtn').addEventListener('click', ()=> openTradeModal(null, null));
 
@@ -487,36 +509,54 @@ document.getElementById('tradeModalClose').addEventListener('click', closeTradeM
 document.getElementById('tradeCancelBtn').addEventListener('click', closeTradeModal);
 function closeTradeModal(){ document.getElementById('tradeModal').classList.add('hidden'); }
 
+document.getElementById('tDirection').addEventListener('change', syncTradeDirection);
+
 document.getElementById('tScreenshot').addEventListener('change', (e)=>{
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = ()=>{
-    state.pendingScreenshot = reader.result;
-    const preview = document.getElementById('tScreenshotPreview');
-    preview.src = reader.result; preview.classList.remove('hidden');
-  };
-  reader.readAsDataURL(file);
+  const files = [...e.target.files];
+  if (!files.length) return;
+  // Read every selected file and append it to the existing screenshots.
+  Promise.all(files.map(file=> new Promise(resolve=>{
+    const reader = new FileReader();
+    reader.onload = ()=> resolve(reader.result);
+    reader.onerror = ()=> resolve(null);
+    reader.readAsDataURL(file);
+  }))).then(results=>{
+    results.filter(Boolean).forEach(src=> state.pendingScreenshots.push(src));
+    renderScreenshotList();
+  });
+  e.target.value = ''; // allow re-selecting the same file(s)
+});
+
+// Remove an individual screenshot thumbnail.
+document.getElementById('tScreenshotList').addEventListener('click', (e)=>{
+  const btn = e.target.closest('.ss-remove');
+  if (!btn) return;
+  state.pendingScreenshots.splice(parseInt(btn.dataset.idx,10), 1);
+  renderScreenshotList();
 });
 
 document.getElementById('tradeSaveBtn').addEventListener('click', ()=>{
+  const direction = document.getElementById('tDirection').value;
+  const noTrade = direction === 'No trade';
   const instrument = document.getElementById('tInstrument').value.trim().toUpperCase();
-  if (!instrument){ toast('Instrument is required.'); return; }
+  if (!noTrade && !instrument){ toast('Instrument is required.'); return; }
   const entry = parseFloat(document.getElementById('tEntry').value);
   const exit = parseFloat(document.getElementById('tExit').value);
   const pnlInput = document.getElementById('tPnl').value;
   const data = {
-    instrument,
-    direction: document.getElementById('tDirection').value,
+    instrument: noTrade ? '' : instrument,
+    direction,
+    noTrade,
     date: document.getElementById('tDate').value || todayISO(),
     time: document.getElementById('tTime').value || '09:30',
-    entry: isNaN(entry) ? null : entry,
-    exit: isNaN(exit) ? null : exit,
-    size: parseFloat(document.getElementById('tSize').value) || null,
-    risk: parseFloat(document.getElementById('tRisk').value) || null,
-    pnl: pnlInput==='' ? null : parseFloat(pnlInput),
-    breakEven: document.getElementById('tBreakEven').checked,
-    setup: document.getElementById('tSetup').value.trim(),
+    // No-trade days carry no trade metrics so they don't affect any stats.
+    entry: noTrade ? null : (isNaN(entry) ? null : entry),
+    exit: noTrade ? null : (isNaN(exit) ? null : exit),
+    size: noTrade ? null : (parseFloat(document.getElementById('tSize').value) || null),
+    risk: noTrade ? null : (parseFloat(document.getElementById('tRisk').value) || null),
+    pnl: noTrade ? null : (pnlInput==='' ? null : parseFloat(pnlInput)),
+    breakEven: noTrade ? false : document.getElementById('tBreakEven').checked,
+    setup: noTrade ? '' : document.getElementById('tSetup').value.trim(),
     tags: document.getElementById('tTags').value.split(',').map(s=>s.trim()).filter(Boolean),
     preCatalyst: document.getElementById('tPreCatalyst').value,
     prePlan: document.getElementById('tPrePlan').value,
@@ -524,7 +564,8 @@ document.getElementById('tradeSaveBtn').addEventListener('click', ()=>{
     postRules: document.getElementById('tPostRules').value,
     postChange: document.getElementById('tPostChange').value,
     postEmotion: document.getElementById('tPostEmotion').value,
-    screenshot: state.pendingScreenshot,
+    screenshots: [...state.pendingScreenshots],
+    screenshot: undefined, // clear legacy single-screenshot field
   };
   // R multiple
   data.rMultiple = (data.risk && data.pnl!==null && data.risk>0) ? (data.pnl/data.risk) : null;
@@ -560,10 +601,15 @@ document.getElementById('tradeDeleteBtn').addEventListener('click', ()=>{
 function openDetailModal(tradeId){
   const t = state.trades.find(x=>x.id===tradeId);
   if (!t) return;
-  document.getElementById('detailTitle').textContent = `${t.instrument} · ${t.direction} · ${t.date}`;
+  const isNoTrade = !!t.noTrade;
+  document.getElementById('detailTitle').textContent = isNoTrade
+    ? `No trade · ${t.date}`
+    : `${t.instrument} · ${t.direction} · ${t.date}`;
   const pnlColor = t.pnl>0 ? 'text-profit' : t.pnl<0 ? 'text-loss' : 'text-muted';
   const rDisplay = t.breakEven ? 'Break-even' : (t.rMultiple!==null && t.rMultiple!==undefined ? t.rMultiple.toFixed(2)+'R' : '—');
+  const screenshots = (t.screenshots && t.screenshots.length) ? t.screenshots : (t.screenshot ? [t.screenshot] : []);
   document.getElementById('detailBody').innerHTML = `
+    ${isNoTrade ? `<div class="text-sm text-muted rounded-lg border border-line bg-panel2 px-3 py-2">No-trade day — recorded in your journal only. It doesn&apos;t count toward any stats.</div>` : `
     <div class="grid grid-cols-2 gap-3">
       <div><div class="text-[11px] text-faint uppercase">Entry</div><div class="num">${t.entry ?? '—'}</div></div>
       <div><div class="text-[11px] text-faint uppercase">Exit</div><div class="num">${t.exit ?? '—'}</div></div>
@@ -571,7 +617,7 @@ function openDetailModal(tradeId){
       <div><div class="text-[11px] text-faint uppercase">Planned risk</div><div class="num">${fmtMoney(t.risk)}</div></div>
       <div><div class="text-[11px] text-faint uppercase">P&amp;L</div><div class="num font-semibold ${pnlColor}">${t.pnl!==null?fmtMoney(t.pnl):'Open'}</div></div>
       <div><div class="text-[11px] text-faint uppercase">R multiple</div><div class="num">${rDisplay}</div></div>
-    </div>
+    </div>`}
     ${t.setup? `<div><div class="text-[11px] text-faint uppercase mb-1">Setup</div><div>${t.setup}</div></div>` : ''}
     ${t.tags && t.tags.length ? `<div class="flex flex-wrap gap-1">${t.tags.map(tag=>`<span class="chip on px-2 py-0.5 rounded-full text-xs">${tag}</span>`).join('')}</div>` : ''}
     ${t.newsEvent ? `<div><div class="text-[11px] text-faint uppercase mb-1">News event</div><div class="text-xs">${t.newsEvent}</div></div>` : ''}
@@ -585,7 +631,7 @@ function openDetailModal(tradeId){
       ${t.postChange?`<div class="text-xs text-muted mb-1"><i>${REFLECTION_PROMPTS.postChange}</i></div><div class="text-sm mb-2">${t.postChange}</div>`:''}
       ${t.postEmotion?`<div class="text-xs text-muted mb-1"><i>${REFLECTION_PROMPTS.postEmotion}</i></div><div class="text-sm">${t.postEmotion}</div>`:''}
     </div>`:''}
-    ${t.screenshot ? `<img src="${t.screenshot}" class="rounded-lg border border-line w-full">` : ''}
+    ${screenshots.length ? `<div class="grid grid-cols-1 gap-2">${screenshots.map((src,i)=>`<img src="${src}" class="rounded-lg border border-line w-full" alt="Trade screenshot ${i+1}">`).join('')}</div>` : ''}
   `;
   document.getElementById('detailEditBtn').onclick = ()=>{ closeDetailModal(); openTradeModal(tradeId); };
   document.getElementById('detailModal').classList.remove('hidden');
@@ -620,21 +666,23 @@ function renderJournal(){
   document.getElementById('emptyJournal').classList.toggle('hidden', state.trades.length>0);
 
   list.forEach(t=>{
+    const isNoTrade = !!t.noTrade;
     const pnlColor = t.pnl>0 ? 'text-profit' : t.pnl<0 ? 'text-loss' : 'text-muted';
-    const dirColor = t.direction==='Long' ? 'text-profit border-profit/30 bg-profit/10' : 'text-loss border-loss/30 bg-loss/10';
+    const dirColor = isNoTrade ? 'text-faint border-line bg-panel2'
+      : t.direction==='Long' ? 'text-profit border-profit/30 bg-profit/10' : 'text-loss border-loss/30 bg-loss/10';
     const row = document.createElement('button');
     row.className = 'w-full text-left bg-panel border border-line rounded-xl px-4 py-3 flex items-center justify-between hover:border-gold/40 transition';
     row.innerHTML = `
       <div class="flex items-center gap-3 min-w-0">
         <span class="text-xs font-medium border ${dirColor} rounded-md px-2 py-1">${t.direction}</span>
         <div class="min-w-0">
-          <div class="font-semibold text-sm flex items-center gap-2">${t.instrument} ${t.breakEven?`<span class="text-[10px] font-medium border border-line text-muted rounded px-1.5 py-0.5">BE</span>`:''} ${t.setup?`<span class="text-faint font-normal text-xs">· ${t.setup}</span>`:''}</div>
+          <div class="font-semibold text-sm flex items-center gap-2">${isNoTrade ? '<span class="text-faint font-normal">No-trade day</span>' : t.instrument} ${t.breakEven?`<span class="text-[10px] font-medium border border-line text-muted rounded px-1.5 py-0.5">BE</span>`:''} ${t.setup?`<span class="text-faint font-normal text-xs">· ${t.setup}</span>`:''}</div>
           <div class="text-xs text-muted">${t.date} ${t.time}</div>
         </div>
       </div>
       <div class="text-right shrink-0">
-        <div class="num font-semibold ${pnlColor}">${t.pnl!==null? fmtMoney(t.pnl) : 'Open'}</div>
-        <div class="text-xs text-faint num">${t.breakEven ? 'break-even' : (t.rMultiple!==null && t.rMultiple!==undefined ? t.rMultiple.toFixed(2)+'R' : '')}</div>
+        <div class="num font-semibold ${pnlColor}">${isNoTrade ? '—' : (t.pnl!==null? fmtMoney(t.pnl) : 'Open')}</div>
+        <div class="text-xs text-faint num">${isNoTrade ? '' : (t.breakEven ? 'break-even' : (t.rMultiple!==null && t.rMultiple!==undefined ? t.rMultiple.toFixed(2)+'R' : ''))}</div>
       </div>
     `;
     row.addEventListener('click', ()=> openDetailModal(t.id));
@@ -1175,7 +1223,7 @@ function renderDashboard(){
   const recent = state.trades.filter(t=> !t.breakEven && t.pnl!==null && new Date(t.date) >= cutoff);
   const wins = recent.filter(t=>t.pnl>0).length;
   document.getElementById('statWinRate').textContent = recent.length ? Math.round((wins/recent.length)*100)+'%' : '—';
-  document.getElementById('statTradeCount').textContent = state.trades.length;
+  document.getElementById('statTradeCount').textContent = state.trades.filter(t=>!t.noTrade).length;
 
   // recent trades
   const recentBox = document.getElementById('dashRecentTrades');
