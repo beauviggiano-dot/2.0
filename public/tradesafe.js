@@ -73,6 +73,7 @@ const LS = {
   trades: 'rl_trades',
   theme: 'ts_theme',
   backtests: 'ts_backtests',
+  sizePrecision: 'ts_size_precision',
 };
 function load(key, fallback){ try{ const v = localStorage.getItem(key); return v===null? fallback : JSON.parse(v); }catch(e){ return fallback; } }
 function save(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){ console.error('Storage failed', e); } }
@@ -87,6 +88,7 @@ let state = {
   editingBacktestId: null,
   selected: INSTRUMENTS[0],
   riskMode: 'dollar', // or 'percent'
+  sizePrecision: load(LS.sizePrecision, 1), // decimals for position size: 0, 1, or 2
   direction: 'long',
   catFilter: 'all',
   editingTradeId: null,
@@ -285,6 +287,25 @@ document.getElementById('dirShort').addEventListener('click', ()=>{ setDirection
   document.getElementById(id).addEventListener('input', calcSizer);
 });
 
+// Size rounding precision: highlight the active button and recompute.
+function updatePrecisionButtons(){
+  document.querySelectorAll('.prec-btn').forEach(btn=>{
+    const active = parseInt(btn.dataset.prec,10) === state.sizePrecision;
+    btn.classList.toggle('bg-gold/10', active);
+    btn.classList.toggle('text-gold', active);
+    btn.classList.toggle('font-medium', active);
+    btn.classList.toggle('text-muted', !active);
+  });
+}
+document.querySelectorAll('.prec-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    state.sizePrecision = parseInt(btn.dataset.prec,10);
+    save(LS.sizePrecision, state.sizePrecision);
+    updatePrecisionButtons();
+    calcSizer();
+  });
+});
+
 let lastSizerResult = null;
 function calcSizer(){
   const inst = state.selected;
@@ -295,22 +316,28 @@ function calcSizer(){
 
   const riskDollar = state.riskMode==='percent' ? (state.account * riskInput/100) : riskInput;
 
+  // User-selected rounding precision (0, 1, or 2 decimals). Always truncate
+  // down so we never round up into more risk than the trader intended.
+  const dp = state.sizePrecision;
+  const factor = Math.pow(10, dp);
+  const truncate = (v) => Math.floor(v * factor) / factor;
+
   let size = 0, riskPerUnit = 0, sizeLabel = 'Contracts', sizeSub = '';
   if (inst.category==='futures' || inst.category==='options'){
     const ticks = inst.tickSize>0 ? stopDist / inst.tickSize : 0;
     riskPerUnit = ticks * inst.tickValue;
-    size = riskPerUnit>0 ? Math.floor((riskDollar / riskPerUnit)*10)/10 : 0;
+    size = riskPerUnit>0 ? truncate(riskDollar / riskPerUnit) : 0;
     sizeLabel = 'Contracts';
     sizeSub = riskPerUnit>0 ? `${fmtMoney(riskPerUnit)} risk / contract` : '';
   } else if (inst.category==='forex'){
     riskPerUnit = stopDist * inst.pipValue; // per standard lot
-    const lots = riskPerUnit>0 ? Math.floor((riskDollar/riskPerUnit)*100)/100 : 0;
+    const lots = riskPerUnit>0 ? truncate(riskDollar/riskPerUnit) : 0;
     size = lots;
     sizeLabel = 'Lots (standard)';
     sizeSub = riskPerUnit>0 ? `${fmtMoney(riskPerUnit)} risk / lot · ${fmtNum(lots*100,0)} micro-lots` : '';
   }
 
-  document.getElementById('resultSize').textContent = inst.category==='forex' ? fmtNum(size,2) : fmtNum(size,1);
+  document.getElementById('resultSize').textContent = fmtNum(size, dp);
   document.getElementById('sizeLabel').textContent = sizeLabel;
   document.getElementById('resultSizeSub').textContent = sizeSub;
 
@@ -1354,6 +1381,7 @@ function init(){
   refreshAccountDisplays();
   setRiskMode('dollar');
   setDirection('long');
+  updatePrecisionButtons();
   selectInstrument('ES');
   renderInstrumentList();
   renderDashboard();
