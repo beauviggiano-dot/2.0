@@ -1236,10 +1236,21 @@ function tradesByDay(){
   const map = {};
   state.trades.forEach(t=>{
     if (t.pnl===null || t.pnl===undefined) return;
-    (map[t.date] = map[t.date] || { pnl:0, count:0 });
-    map[t.date].pnl += t.pnl; map[t.date].count++;
+    (map[t.date] = map[t.date] || { pnl:0, scored:0, count:0, beCount:0 });
+    map[t.date].pnl += t.pnl; // true realized dollars (incl. break-even)
+    map[t.date].count++;
+    // "scored" excludes break-even trades so they don't tint a day green/red.
+    if (t.breakEven) map[t.date].beCount++;
+    else map[t.date].scored += t.pnl;
   });
   return map;
+}
+// Classify a day/month aggregate by its non-break-even net: 'green' | 'red' | 'be'.
+function calDayClass(agg){
+  if (!agg || !agg.count) return null;
+  if (agg.scored > 0) return 'green';
+  if (agg.scored < 0) return 'red';
+  return 'be';
 }
 function renderTradeCalendar(){
   bindTradeCalendar();
@@ -1276,7 +1287,7 @@ function renderTradeCalMonth(){
   const byDay = tradesByDay();
   const gridStart = startOfWeek(new Date(year, month, 1));
   const todayIso = todayISO();
-  let monthPnl = 0, green = 0, red = 0;
+  let monthPnl = 0, green = 0, red = 0, be = 0;
 
   const dows = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   let html = `<div class="grid grid-cols-7 gap-px bg-line border border-line rounded-xl overflow-hidden">`;
@@ -1287,13 +1298,15 @@ function renderTradeCalMonth(){
     const inMonth = d.getMonth()===month;
     const day = byDay[iso];
     const isToday = iso===todayIso;
-    if (inMonth && day){ monthPnl += day.pnl; if (day.pnl>0) green++; else if (day.pnl<0) red++; }
+    const cls = calDayClass(day);
+    if (inMonth && day){ monthPnl += day.pnl; if (cls==='green') green++; else if (cls==='red') red++; else if (cls==='be') be++; }
     let cellBg = 'bg-panel', pnlHtml = '';
     if (day && inMonth){
-      cellBg = day.pnl>0 ? 'bg-profit/10' : day.pnl<0 ? 'bg-loss/10' : 'bg-panel';
-      const c = day.pnl>0 ? 'text-profit' : day.pnl<0 ? 'text-loss' : 'text-muted';
+      cellBg = cls==='green' ? 'bg-profit/10' : cls==='red' ? 'bg-loss/10' : 'bg-panel';
+      const c = cls==='green' ? 'text-profit' : cls==='red' ? 'text-loss' : 'text-muted';
+      const beTag = cls==='be' ? `<span class="text-[8px] uppercase tracking-wide text-faint">break-even</span>` : `<span class="text-[9px] text-faint">${day.count} trade${day.count>1?'s':''}</span>`;
       pnlHtml = `<div class="num sensitive text-[11px] font-semibold ${c} mt-1 truncate">${fmtMoney(day.pnl)}</div>
-        <div class="text-[9px] text-faint">${day.count} trade${day.count>1?'s':''}</div>`;
+        <div>${beTag}</div>`;
     }
     html += `<div class="${cellBg} min-h-[68px] p-1.5 ${inMonth?'':'opacity-40'}">
         <div class="text-xs num ${isToday?'text-gold font-semibold':'text-muted'}">${d.getDate()}</div>
@@ -1306,32 +1319,37 @@ function renderTradeCalMonth(){
   document.getElementById('tcStat1Label').textContent = 'Month P&L';
   document.getElementById('tcStat2Label').textContent = 'Green days';
   document.getElementById('tcStat3Label').textContent = 'Red days';
+  document.getElementById('tcStat4Label').textContent = 'Break-even days';
   const s1 = document.getElementById('tcStat1');
   s1.textContent = fmtMoney(monthPnl);
   s1.className = 'num sensitive font-semibold ' + (monthPnl>0?'text-profit':monthPnl<0?'text-loss':'');
   document.getElementById('tcStat2').textContent = green;
   document.getElementById('tcStat3').textContent = red;
+  document.getElementById('tcStat4').textContent = be;
 }
 function renderTradeCalYear(){
   const year = state.tradeCalAnchor.getFullYear();
   document.getElementById('tcLabel').textContent = String(year);
 
-  const byMonth = Array.from({length:12}, ()=>({ pnl:0, count:0 }));
+  const byMonth = Array.from({length:12}, ()=>({ pnl:0, scored:0, count:0, beCount:0 }));
   state.trades.forEach(t=>{
     if (t.pnl===null || t.pnl===undefined) return;
     const d = new Date(t.date + 'T00:00:00');
     if (d.getFullYear()!==year) return;
-    byMonth[d.getMonth()].pnl += t.pnl; byMonth[d.getMonth()].count++;
+    const mm = byMonth[d.getMonth()];
+    mm.pnl += t.pnl; mm.count++;
+    if (t.breakEven) mm.beCount++; else mm.scored += t.pnl;
   });
-  let yearPnl = 0, green = 0, red = 0;
+  let yearPnl = 0, green = 0, red = 0, be = 0;
   const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   let html = `<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">`;
   for (let m=0;m<12;m++){
     const mm = byMonth[m];
     yearPnl += mm.pnl;
-    if (mm.pnl>0) green++; else if (mm.pnl<0) red++;
-    const c = mm.pnl>0 ? 'text-profit' : mm.pnl<0 ? 'text-loss' : 'text-muted';
-    const hover = mm.pnl>0 ? 'hover:border-profit/40' : mm.pnl<0 ? 'hover:border-loss/40' : 'hover:border-gold/40';
+    const cls = calDayClass(mm);
+    if (cls==='green') green++; else if (cls==='red') red++; else if (cls==='be') be++;
+    const c = cls==='green' ? 'text-profit' : cls==='red' ? 'text-loss' : 'text-muted';
+    const hover = cls==='green' ? 'hover:border-profit/40' : cls==='red' ? 'hover:border-loss/40' : 'hover:border-gold/40';
     html += `<button class="tc-month-card bg-panel2 border border-line rounded-xl p-4 text-left ${hover} transition" data-month="${m}">
         <div class="text-sm font-semibold">${names[m]}</div>
         <div class="num sensitive text-lg font-semibold mt-1 ${c}">${mm.count?fmtMoney(mm.pnl):'—'}</div>
@@ -1352,11 +1370,13 @@ function renderTradeCalYear(){
   document.getElementById('tcStat1Label').textContent = 'Year P&L';
   document.getElementById('tcStat2Label').textContent = 'Green months';
   document.getElementById('tcStat3Label').textContent = 'Red months';
+  document.getElementById('tcStat4Label').textContent = 'Break-even months';
   const s1 = document.getElementById('tcStat1');
   s1.textContent = fmtMoney(yearPnl);
   s1.className = 'num sensitive font-semibold ' + (yearPnl>0?'text-profit':yearPnl<0?'text-loss':'');
   document.getElementById('tcStat2').textContent = green;
   document.getElementById('tcStat3').textContent = red;
+  document.getElementById('tcStat4').textContent = be;
 }
 function renderEquityChart(){
   const ctx = document.getElementById('dashEquityChart');
