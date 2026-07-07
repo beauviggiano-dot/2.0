@@ -75,6 +75,10 @@
 
     .num { font-family:'JetBrains Mono', ui-monospace, monospace; font-variant-numeric:tabular-nums; }
 
+    /* Privacy blur: hide P&L values (e.g. while streaming) */
+    .privacy-on .sensitive { filter:blur(8px); transition:filter .12s; user-select:none; cursor:default; }
+    .privacy-on .sensitive:hover { filter:blur(8px); }
+
     /* Heatmap */
     .heat-0 { background:var(--heat-0); }
     .heat-win-1 { background:#173a2b; } .heat-win-2 { background:#1f5c42; }
@@ -185,19 +189,23 @@
 
       <!-- ============ DASHBOARD ============ -->
       <section id="view-dashboard" class="view active">
-        <div class="mb-6">
-          <div id="greeting" class="font-display text-2xl font-semibold">Good morning.</div>
-          <div id="todayDate" class="text-muted text-sm mt-1">Today</div>
+        <div class="flex items-start justify-between gap-3 mb-6">
+          <div>
+            <div id="greeting" class="font-display text-2xl font-semibold">Good morning.</div>
+            <div id="todayDate" class="text-muted text-sm mt-1">Today</div>
+          </div>
+          <button id="privacyToggle" class="btn-ghost text-sm flex items-center gap-2 shrink-0" aria-pressed="false" title="Blur P&amp;L values for privacy">
+            <svg id="privacyIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>
+            </svg>
+            <span id="privacyLabel">Hide P&amp;L</span>
+          </button>
         </div>
 
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        <div class="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
           <div class="bg-panel border border-line rounded-xl p-4">
             <div class="text-[11px] uppercase tracking-wide text-faint">Today's P&amp;L</div>
-            <div id="statTodayPnl" class="num text-xl font-semibold">—</div>
-          </div>
-          <div class="bg-panel border border-line rounded-xl p-4">
-            <div class="text-[11px] uppercase tracking-wide text-faint">Open Risk</div>
-            <div id="statOpenRisk" class="num text-xl font-semibold">—</div>
+            <div id="statTodayPnl" class="num sensitive text-xl font-semibold">—</div>
           </div>
           <div class="bg-panel border border-line rounded-xl p-4">
             <div class="text-[11px] uppercase tracking-wide text-faint">Win Rate (30d)</div>
@@ -212,7 +220,7 @@
         <div class="grid lg:grid-cols-3 gap-4">
           <div class="lg:col-span-2 bg-panel border border-line rounded-xl p-5">
             <h2 class="font-display font-semibold mb-4">Equity Curve</h2>
-            <div class="h-64"><canvas id="dashEquityChart"></canvas></div>
+            <div class="h-64 sensitive"><canvas id="dashEquityChart"></canvas></div>
           </div>
           <div class="bg-panel border border-line rounded-xl p-5">
             <h2 class="font-display font-semibold mb-3">Recent Trades</h2>
@@ -520,7 +528,7 @@
                 <div class="bg-panel border border-line rounded-xl p-4"><div class="text-[11px] text-faint uppercase">Expectancy / trade</div><div id="btExpectancy" class="num text-xl font-semibold mt-1">—</div></div>
                 <div class="bg-panel border border-line rounded-xl p-4"><div class="text-[11px] text-faint uppercase">Total Trades</div><div id="btTotal" class="num text-lg font-semibold mt-1">—</div></div>
                 <div class="bg-panel border border-line rounded-xl p-4"><div class="text-[11px] text-faint uppercase">Avg Win</div><div id="btAvgWin" class="num text-lg font-semibold mt-1 text-profit">—</div></div>
-                <div class="bg-panel border border-line rounded-xl p-4"><div class="text-[11px] text-faint uppercase">Avg Loss</div><div id="btAvgLoss" class="num text-lg font-semibold mt-1 text-loss">—</div></div>
+                <div class="bg-panel border border-line rounded-xl p-4"><div class="text-[11px] text-faint uppercase">Avg Loss</div><div id="btAvgLoss" class="num text-lg font-semibold mt-1 text-loss">�����</div></div>
                 <div class="bg-panel border border-line rounded-xl p-4"><div class="text-[11px] text-faint uppercase">Max Drawdown</div><div id="btMaxDD" class="num text-lg font-semibold mt-1 text-loss">—</div></div>
               </div>
 
@@ -589,8 +597,8 @@
   </div>
 
   <!-- ============ TRADE MODAL ============ -->
-  <div id="tradeModal" class="hidden fixed inset-0 z-50 flex items-start sm:items-center justify-center p-3 bg-black/60 overflow-y-auto">
-    <div class="bg-panel border border-line rounded-2xl w-full max-w-xl p-4 my-4">
+  <div id="tradeModal" class="hidden fixed inset-0 z-50 flex items-start sm:items-center justify-center p-3 bg-black/60">
+    <div class="bg-panel border border-line rounded-2xl w-full max-w-xl p-4 my-3 max-h-[92vh] overflow-y-auto">
       <div class="flex items-center justify-between mb-3">
         <h2 id="tradeModalTitle" class="font-display font-semibold text-base">New journal entry</h2>
         <button id="tradeModalClose" class="text-faint hover:text-loss text-2xl leading-none">&times;</button>
@@ -652,14 +660,14 @@
   </div>
 
   <!-- ============ DETAIL MODAL ============ -->
-  <div id="detailModal" class="hidden fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 bg-black/60 overflow-y-auto">
-    <div class="bg-panel border border-line rounded-2xl w-full max-w-xl p-6 my-6">
-      <div class="flex items-center justify-between mb-5">
+  <div id="detailModal" class="hidden fixed inset-0 z-50 flex items-start sm:items-center justify-center p-3 bg-black/60">
+    <div class="bg-panel border border-line rounded-2xl w-full max-w-xl p-5 my-3 max-h-[92vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-4">
         <h2 id="detailTitle" class="font-display font-semibold text-lg">Trade detail</h2>
         <button id="detailClose" class="text-faint hover:text-loss text-2xl leading-none">&times;</button>
       </div>
-      <div id="detailBody" class="space-y-4"></div>
-      <div class="flex justify-end gap-2 mt-6">
+      <div id="detailBody" class="space-y-3"></div>
+      <div class="flex justify-end gap-2 mt-5">
         <button id="detailCloseBtn" class="btn-ghost text-sm">Close</button>
         <button id="detailEditBtn" class="btn-gold text-sm">Edit</button>
       </div>
@@ -720,6 +728,6 @@
   <!-- TOAST -->
   <div id="toast" class="hidden fixed bottom-20 lg:bottom-6 left-1/2 -translate-x-1/2 z-[60] bg-panel2 border border-gold/40 text-sm px-4 py-2.5 rounded-lg shadow-lg"></div>
 
-  <script src="/tradesafe.js?v=9"></script>
+  <script src="/tradesafe.js?v=10"></script>
 </body>
 </html>
