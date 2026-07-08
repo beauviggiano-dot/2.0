@@ -12,6 +12,7 @@ export function AuthForm({ mode }: { mode: 'sign-in' | 'sign-up' }) {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [code, setCode] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -29,9 +30,32 @@ export function AuthForm({ mode }: { mode: 'sign-in' | 'sign-up' }) {
     setError(null)
     setLoading(true)
 
-    const { error } = isSignUp
-      ? await authClient.signUp.email({ email, password, name })
-      : await authClient.signIn.email({ email, password })
+    if (isSignUp) {
+      // Sign-up goes through the server-gated /api/register route, which
+      // validates the access code before creating the account.
+      try {
+        const res = await fetch('/api/register', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ name, email, password, code }),
+        })
+        const data = await res.json()
+        setLoading(false)
+        if (!res.ok) {
+          setError(data?.error ?? 'Could not create account.')
+          return
+        }
+        // Store the bearer token returned by the gated registration.
+        if (data?.token) localStorage.setItem(TOKEN_KEY, data.token)
+        window.location.href = '/app'
+      } catch {
+        setLoading(false)
+        setError('Network error. Please try again.')
+      }
+      return
+    }
+
+    const { error } = await authClient.signIn.email({ email, password })
 
     setLoading(false)
 
@@ -62,16 +86,32 @@ export function AuthForm({ mode }: { mode: 'sign-in' | 'sign-up' }) {
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           {isSignUp && (
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="name">Name</Label>
-              <Input
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                autoComplete="name"
-              />
-            </div>
+            <>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="name">Name</Label>
+                <Input
+                  id="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  autoComplete="name"
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="code">Access code</Label>
+                <Input
+                  id="code"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  required
+                  autoComplete="off"
+                  placeholder="Code from your membership"
+                />
+                <p className="text-xs text-muted-foreground">
+                  You&apos;ll find this in your membership area.
+                </p>
+              </div>
+            </>
           )}
           <div className="flex flex-col gap-2">
             <Label htmlFor="email">Email</Label>
