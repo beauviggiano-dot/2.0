@@ -1175,36 +1175,41 @@ function renderAvgRR(){
     btn.classList.toggle('text-muted', !active);
   });
 
-  // Only closed trades with a valid R multiple (needs both risk and pnl).
-  // Break-even trades are excluded so a scratch trade doesn't skew the ratio.
-  const rs = state.trades
-    .filter(t=> !t.breakEven && t.rMultiple!==null && t.rMultiple!==undefined && (!start || new Date(t.date+'T00:00:00') >= start))
-    .map(t=> t.rMultiple);
+  // Ratio is built from the overall average win size vs average loss size,
+  // with risk normalized to 1 → "1 : (avgWin / avgLoss)". Break-even and
+  // no-trade days are excluded so they don't skew the averages.
+  const inWindow = state.trades.filter(t=>
+    !t.breakEven && !t.noTrade &&
+    t.pnl!==null && t.pnl!==undefined &&
+    (!start || new Date(t.date+'T00:00:00') >= start)
+  );
+  const winPnls = inWindow.filter(t=> t.pnl>0).map(t=> t.pnl);
+  const lossPnls = inWindow.filter(t=> t.pnl<0).map(t=> Math.abs(t.pnl));
 
   document.getElementById('rrPeriodLabel').textContent = meta.label;
-  document.getElementById('rrCount').textContent = rs.length;
+  document.getElementById('rrCount').textContent = winPnls.length + lossPnls.length;
 
   const valEl = document.getElementById('rrValue');
   const winEl = document.getElementById('rrAvgWin');
   const lossEl = document.getElementById('rrAvgLoss');
 
-  if (!rs.length){
+  const avgWin = winPnls.length ? winPnls.reduce((s,v)=>s+v,0)/winPnls.length : null;
+  const avgLoss = lossPnls.length ? lossPnls.reduce((s,v)=>s+v,0)/lossPnls.length : null;
+
+  // Sub-stats show the actual average dollar win and loss sizes.
+  winEl.textContent = avgWin!==null ? fmtMoney(avgWin) : '—';
+  lossEl.textContent = avgLoss!==null ? fmtMoney(avgLoss) : '—';
+
+  // Need both an average win and an average loss to express a ratio.
+  if (avgWin===null || avgLoss===null || avgLoss===0){
     valEl.textContent = '—';
     valEl.className = 'num sensitive font-display text-3xl font-semibold';
-    winEl.textContent = '—';
-    lossEl.textContent = '—';
     return;
   }
 
-  const avg = rs.reduce((s,r)=>s+r,0) / rs.length;
-  const wins = rs.filter(r=>r>0), losses = rs.filter(r=>r<0);
-  const avgWin = wins.length ? wins.reduce((s,r)=>s+r,0)/wins.length : null;
-  const avgLoss = losses.length ? losses.reduce((s,r)=>s+r,0)/losses.length : null;
-
-  valEl.textContent = '1 : ' + avg.toFixed(2);
-  valEl.className = 'num sensitive font-display text-3xl font-semibold ' + (avg>0?'text-profit':avg<0?'text-loss':'');
-  winEl.textContent = avgWin!==null ? '1 : ' + avgWin.toFixed(2) : '—';
-  lossEl.textContent = avgLoss!==null ? '1 : ' + Math.abs(avgLoss).toFixed(2) : '—';
+  const ratio = avgWin / avgLoss;
+  valEl.textContent = '1 : ' + ratio.toFixed(2);
+  valEl.className = 'num sensitive font-display text-3xl font-semibold ' + (ratio>=1?'text-profit':'text-loss');
 }
 
 function renderDashboard(){
@@ -1664,15 +1669,25 @@ function deleteStrategy(){
 }
 
 /* ---------- Backtest trade modal ---------- */
-function syncBtResultType(){
+// Derive a win/loss/break-even outcome from a stored trade (handles both the
+// new outcome field and older dollar/R trades for backward compatibility).
+function btOutcomeOf(t){
+  if (!t) return 'win';
+  if (t.outcome) return t.outcome;
+  if (t.breakEven) return 'be';
+  if (t.r!==null && t.r!==undefined) return t.r<0 ? 'loss' : (t.r>0 ? 'win' : 'be');
+  if (t.pnl!==null && t.pnl!==undefined) return t.pnl<0 ? 'loss' : (t.pnl>0 ? 'win' : 'be');
+  return 'win';
+}
+function syncBtOutcome(){
   const noTrade = document.getElementById('btDirection').value === 'No trade';
-  const type = document.getElementById('btResultType').value;
-  // A no-trade day has no result — hide the P&L / R / break-even inputs entirely.
-  document.getElementById('btResultTypeWrap').classList.toggle('hidden', noTrade);
-  document.getElementById('btBreakEvenWrap').classList.toggle('hidden', noTrade);
+  const outcome = document.getElementById('btOutcome').value;
+  // A no-trade day has no result — hide the outcome inputs entirely.
+  document.getElementById('btOutcomeWrap').classList.toggle('hidden', noTrade);
   document.getElementById('btNoTradeNote').classList.toggle('hidden', !noTrade);
-  document.getElementById('btDollarWrap').classList.toggle('hidden', noTrade || type!=='dollar');
-  document.getElementById('btRWrap').classList.toggle('hidden', noTrade || type!=='r');
+  // The risk:reward input only applies to wins; losses are always -1R.
+  document.getElementById('btRRWrap').classList.toggle('hidden', noTrade || outcome!=='win');
+  document.getElementById('btLossNote').classList.toggle('hidden', noTrade || outcome!=='loss');
 }
 function openBtTradeModal(id){
   const strat = state.backtests.find(s=>s.id===state.selectedBacktestId);
@@ -1684,13 +1699,13 @@ function openBtTradeModal(id){
   document.getElementById('btTime').value = t ? (t.time||'') : '';
   document.getElementById('btInstrument').value = t ? (t.instrument||'') : '';
   document.getElementById('btDirection').value = t ? (t.direction||'Long') : 'Long';
-  document.getElementById('btResultType').value = t ? (t.resultType||'dollar') : 'dollar';
-  document.getElementById('btPnl').value = t && t.resultType!=='r' ? (t.pnl ?? '') : '';
-  document.getElementById('btR').value = t && t.resultType==='r' ? (t.r ?? '') : '';
+  const outcome = btOutcomeOf(t);
+  document.getElementById('btOutcome').value = outcome;
+  // Prefill the risk:reward only for wins that already have a positive R value.
+  document.getElementById('btRR').value = (t && outcome==='win' && t.r>0) ? t.r : '';
   document.getElementById('btNotes').value = t ? (t.notes||'') : '';
-  document.getElementById('btBreakEven').checked = t ? !!t.breakEven : false;
   document.getElementById('btTradeDeleteBtn').classList.toggle('hidden', !t);
-  syncBtResultType();
+  syncBtOutcome();
   document.getElementById('btTradeModal').classList.remove('hidden');
 }
 function closeBtTradeModal(){ document.getElementById('btTradeModal').classList.add('hidden'); state.editingBtTradeId=null; }
@@ -1699,7 +1714,13 @@ function saveBtTrade(){
   if (!strat) return;
   const direction = document.getElementById('btDirection').value;
   const noTrade = direction === 'No trade';
-  const resultType = document.getElementById('btResultType').value;
+  const outcome = document.getElementById('btOutcome').value;
+  const isWin = outcome === 'win', isBe = outcome === 'be';
+  const rr = parseFloat(document.getElementById('btRR').value) || 0;
+  // A win must specify its risk:reward so the simulated result is meaningful.
+  if (!noTrade && isWin && rr<=0){ toast('Enter the risk:reward for this win (e.g. 2 for 1 : 2).'); return; }
+  // Wins use the entered risk:reward, losses are always -1R, break-even is 0R.
+  const r = noTrade ? null : (isBe ? 0 : (isWin ? Math.abs(rr) : -1));
   const trade = {
     id: state.editingBtTradeId || uid(),
     date: document.getElementById('btDate').value || todayISO(),
@@ -1707,11 +1728,12 @@ function saveBtTrade(){
     instrument: document.getElementById('btInstrument').value.trim(),
     direction,
     noTrade,
-    resultType,
-    // No-trade days carry no P&L, R, or break-even result.
-    pnl: noTrade ? 0 : (resultType==='dollar' ? (parseFloat(document.getElementById('btPnl').value) || 0) : null),
-    r: noTrade ? null : (resultType==='r' ? (parseFloat(document.getElementById('btR').value) || 0) : null),
-    breakEven: noTrade ? false : document.getElementById('btBreakEven').checked,
+    // Results are expressed purely in R now (1R = the strategy's per-trade risk).
+    resultType: 'r',
+    outcome: noTrade ? null : outcome,
+    pnl: null,
+    r,
+    breakEven: noTrade ? false : isBe,
     notes: document.getElementById('btNotes').value.trim(),
   };
   strat.trades = strat.trades || [];
@@ -1750,8 +1772,8 @@ function bindBacktestControls(){
   document.getElementById('btTradeCancelBtn').addEventListener('click', closeBtTradeModal);
   document.getElementById('btTradeSaveBtn').addEventListener('click', saveBtTrade);
   document.getElementById('btTradeDeleteBtn').addEventListener('click', deleteBtTrade);
-  document.getElementById('btResultType').addEventListener('change', syncBtResultType);
-  document.getElementById('btDirection').addEventListener('change', syncBtResultType);
+  document.getElementById('btOutcome').addEventListener('change', syncBtOutcome);
+  document.getElementById('btDirection').addEventListener('change', syncBtOutcome);
   const rerunBtList = ()=>{
     const strat = state.backtests.find(s=>s.id===state.selectedBacktestId);
     if (strat) renderBtTradeList(strat);
