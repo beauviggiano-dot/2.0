@@ -76,6 +76,7 @@ const LS = {
   sizePrecision: 'ts_size_precision',
   privacy: 'ts_privacy',
   rrPeriod: 'ts_rr_period',
+  winPeriod: 'ts_win_period',
   todJournal: 'ts_tod_buckets_journal',
   todBacktest: 'ts_tod_buckets_backtest',
 };
@@ -103,6 +104,7 @@ let state = {
   sizePrecision: load(LS.sizePrecision, 1), // decimals for position size: 0, 1, or 2
   privacy: load(LS.privacy, false), // blur P&L values on the dashboard
   rrPeriod: load(LS.rrPeriod, 'month'), // avg R:R window: week, month, year, all
+  winPeriod: load(LS.winPeriod, '30d'), // win rate window: 30d, week, month, year, all
   todJournal: load(LS.todJournal, defaultTodBuckets()),
   todBacktest: load(LS.todBacktest, defaultTodBuckets()),
   todEditTarget: null, // 'journal' | 'backtest' while editing buckets
@@ -1143,6 +1145,47 @@ document.getElementById('privacyToggle').addEventListener('click', ()=>{
   applyPrivacy();
 });
 
+/* ---------- Win Rate (selectable period) ---------- */
+const WIN_META = {
+  '30d': { label: 'Last 30 days', start: ()=> { const d=new Date(); d.setDate(d.getDate()-30); return d; } },
+  week:  { label: 'This week',    start: ()=> startOfWeek(new Date()) },
+  month: { label: 'This month',   start: ()=> { const d=new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); } },
+  year:  { label: 'This year',    start: ()=> { const d=new Date(); return new Date(d.getFullYear(), 0, 1); } },
+  all:   { label: 'All time',     start: ()=> null },
+};
+let _winBound = false;
+function bindWinRate(){
+  if (_winBound) return; _winBound = true;
+  const sel = document.getElementById('winPeriod');
+  if (!sel) return;
+  sel.addEventListener('change', ()=>{
+    state.winPeriod = sel.value;
+    save(LS.winPeriod, state.winPeriod);
+    renderWinRate();
+  });
+}
+function renderWinRate(){
+  bindWinRate();
+  const period = WIN_META[state.winPeriod] ? state.winPeriod : '30d';
+  const meta = WIN_META[period];
+  const start = meta.start();
+
+  const sel = document.getElementById('winPeriod');
+  if (sel) sel.value = period;
+
+  // Break-even and no-trade days are excluded so they don't skew the rate.
+  const decided = state.trades.filter(t=>
+    !t.breakEven && !t.noTrade && t.pnl!==null && t.pnl!==undefined &&
+    (!start || new Date(t.date+'T00:00:00') >= start)
+  );
+  const wins = decided.filter(t=> t.pnl>0).length;
+  const rate = decided.length ? Math.round((wins/decided.length)*100) : null;
+
+  document.getElementById('statWinRate').textContent = rate!==null ? rate+'%' : '—';
+  document.getElementById('statWinRateSub').textContent =
+    meta.label + ' · ' + decided.length + ' trade' + (decided.length===1?'':'s');
+}
+
 /* ---------- Average Risk:Reward ---------- */
 const RR_META = {
   week:  { label: 'This week',  start: ()=> startOfWeek(new Date()) },
@@ -1223,11 +1266,7 @@ function renderDashboard(){
   document.getElementById('statTodayPnl').textContent = fmtMoney(todayPnl);
   document.getElementById('statTodayPnl').className = 'num sensitive text-xl font-semibold ' + (todayPnl>0?'text-profit':todayPnl<0?'text-loss':'');
 
-  const cutoff = new Date(); cutoff.setDate(cutoff.getDate()-30);
-  // Break-even trades are excluded from win rate so they aren't counted against wins.
-  const recent = state.trades.filter(t=> !t.breakEven && t.pnl!==null && new Date(t.date) >= cutoff);
-  const wins = recent.filter(t=>t.pnl>0).length;
-  document.getElementById('statWinRate').textContent = recent.length ? Math.round((wins/recent.length)*100)+'%' : '—';
+  renderWinRate();
   document.getElementById('statTradeCount').textContent = state.trades.filter(t=>!t.noTrade).length;
 
   // recent trades

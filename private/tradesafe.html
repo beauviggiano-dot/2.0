@@ -216,8 +216,18 @@
             <div id="statTodayPnl" class="num sensitive text-xl font-semibold">—</div>
           </div>
           <div class="bg-panel border border-line rounded-xl p-4">
-            <div class="text-[11px] uppercase tracking-wide text-faint">Win Rate (30d)</div>
-            <div id="statWinRate" class="num text-xl font-semibold">—</div>
+            <div class="flex items-center justify-between gap-2">
+              <div class="text-[11px] uppercase tracking-wide text-faint">Win Rate</div>
+              <select id="winPeriod" aria-label="Win rate period" class="bg-transparent text-[11px] text-muted border border-line rounded px-1.5 py-0.5 cursor-pointer focus:outline-none focus:border-gold/40">
+                <option value="30d">30D</option>
+                <option value="week">Week</option>
+                <option value="month">Month</option>
+                <option value="year">Year</option>
+                <option value="all">All</option>
+              </select>
+            </div>
+            <div id="statWinRate" class="num text-xl font-semibold mt-1">—</div>
+            <div id="statWinRateSub" class="text-[11px] text-faint mt-0.5">Last 30 days · 0 trades</div>
           </div>
           <div class="bg-panel border border-line rounded-xl p-4">
             <div class="text-[11px] uppercase tracking-wide text-faint">Total Trades</div>
@@ -872,7 +882,7 @@
 
     function loadApp(){
       var s = document.createElement('script');
-      s.src = '/app/script?v=26';
+      s.src = '/app/script?v=27';
       document.body.appendChild(s);
     }
 
