@@ -230,7 +230,7 @@
           <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
             <div>
               <h2 class="font-display font-semibold">Average Risk : Reward</h2>
-              <p class="text-xs text-muted mt-0.5">Realized reward per 1 unit of risk (closed trades)</p>
+              <p class="text-xs text-muted mt-0.5">Average win size per 1 unit of average loss (closed trades)</p>
             </div>
             <div class="flex rounded-lg border border-line overflow-hidden">
               <button data-rr="week" class="rr-period px-3 py-1.5 text-xs text-muted">Weekly</button>
@@ -771,17 +771,11 @@
         <div><label class="fld">Time <span class="text-faint">(for time-of-day breakdown)</span></label><input id="btTime" type="time" /></div>
         <div><label class="fld">Instrument</label><input id="btInstrument" type="text" placeholder="e.g. ES" /></div>
         <div><label class="fld">Direction</label><select id="btDirection"><option>Long</option><option>Short</option><option value="No trade">No trade</option></select></div>
-        <div id="btResultTypeWrap"><label class="fld">Result type</label><select id="btResultType"><option value="dollar">Dollar P&amp;L</option><option value="r">R-multiple</option></select></div>
-        <div id="btDollarWrap"><label class="fld">P&amp;L ($)</label><input id="btPnl" type="number" step="any" placeholder="e.g. 250 or -100" /></div>
-        <div id="btRWrap" class="hidden"><label class="fld">R-multiple</label><input id="btR" type="number" step="any" placeholder="e.g. 2 or -1" /></div>
+        <div id="btOutcomeWrap"><label class="fld">Outcome</label><select id="btOutcome"><option value="win">Win</option><option value="loss">Loss</option><option value="be">Break-even</option></select></div>
+        <div id="btRRWrap"><label class="fld">Risk : Reward <span class="text-faint">(1 : ?)</span></label><input id="btRR" type="number" step="any" min="0" placeholder="e.g. 2 = 1 : 2" /></div>
+        <div id="btLossNote" class="sm:col-span-2 hidden text-xs text-muted rounded-lg border border-line bg-panel2 px-3 py-2">A loss is recorded as -1R (one unit of risk).</div>
         <div id="btNoTradeNote" class="sm:col-span-2 hidden text-xs text-muted rounded-lg border border-line bg-panel2 px-3 py-2">Logging a no-trade day. It&apos;s recorded in your backtest journal but won&apos;t count toward total trades, win rate, or P&amp;L.</div>
         <div class="sm:col-span-2"><label class="fld">Notes</label><input id="btNotes" type="text" placeholder="Optional" /></div>
-        <div id="btBreakEvenWrap" class="sm:col-span-2">
-          <label class="flex items-center gap-2 text-sm cursor-pointer select-none">
-            <input id="btBreakEven" type="checkbox" class="w-4 h-4 accent-gold" />
-            <span>Mark as break-even <span class="text-faint">— excluded from win/loss &amp; risk:reward</span></span>
-          </label>
-        </div>
       </div>
       <div class="flex items-center justify-between mt-6">
         <button id="btTradeDeleteBtn" class="hidden text-loss text-sm hover:underline">Delete trade</button>
@@ -878,7 +872,7 @@
 
     function loadApp(){
       var s = document.createElement('script');
-      s.src = '/app/script?v=25';
+      s.src = '/app/script?v=26';
       document.body.appendChild(s);
     }
 
