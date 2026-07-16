@@ -77,6 +77,7 @@ const LS = {
   privacy: 'ts_privacy',
   rrPeriod: 'ts_rr_period',
   winPeriod: 'ts_win_period',
+  keypad: 'ts_keypad',
   todJournal: 'ts_tod_buckets_journal',
   todBacktest: 'ts_tod_buckets_backtest',
 };
@@ -105,6 +106,7 @@ let state = {
   privacy: load(LS.privacy, false), // blur P&L values on the dashboard
   rrPeriod: load(LS.rrPeriod, 'month'), // avg R:R window: week, month, year, all
   winPeriod: load(LS.winPeriod, '30d'), // win rate window: 30d, week, month, year, all
+  keypad: load(LS.keypad, false), // show the on-screen keypad in the risk sizer
   todJournal: load(LS.todJournal, defaultTodBuckets()),
   todBacktest: load(LS.todBacktest, defaultTodBuckets()),
   todEditTarget: null, // 'journal' | 'backtest' while editing buckets
@@ -306,6 +308,61 @@ document.getElementById('dirShort').addEventListener('click', ()=>{ setDirection
 
 ['riskValue','stopDistance'].forEach(id=>{
   document.getElementById(id).addEventListener('input', calcSizer);
+});
+
+/* ---------- On-screen keypad for the risk sizer ---------- */
+// Users can type with their device keyboard OR tap this on-screen keypad.
+let activeSizerField = 'riskValue';
+function setActiveSizerField(id){
+  if (id!=='riskValue' && id!=='stopDistance') return;
+  activeSizerField = id;
+  const targetEl = document.getElementById('keypadTarget');
+  if (targetEl) targetEl.textContent = id==='riskValue' ? 'Risk Value' : 'Stop Distance';
+  ['riskValue','stopDistance'].forEach(f=>{
+    document.getElementById(f).classList.toggle('sizer-active', f===id && state.keypad);
+  });
+}
+// Track the last-focused of the two fields so the keypad edits the right one.
+['riskValue','stopDistance'].forEach(id=>{
+  document.getElementById(id).addEventListener('focus', ()=> setActiveSizerField(id));
+});
+
+function applyKeypad(){
+  const pad = document.getElementById('keypad');
+  const btn = document.getElementById('keypadToggle');
+  const label = document.getElementById('keypadToggleLabel');
+  if (pad) pad.classList.toggle('hidden', !state.keypad);
+  if (btn) btn.setAttribute('aria-pressed', String(state.keypad));
+  if (label) label.textContent = state.keypad ? 'Hide on-screen keypad' : 'Show on-screen keypad';
+  setActiveSizerField(activeSizerField); // refresh the active-field highlight
+}
+document.getElementById('keypadToggle').addEventListener('click', ()=>{
+  state.keypad = !state.keypad;
+  save(LS.keypad, state.keypad);
+  applyKeypad();
+});
+
+function keypadPress(key){
+  const el = document.getElementById(activeSizerField);
+  let v = el.value != null ? String(el.value) : '';
+  if (key === 'back'){
+    v = v.slice(0, -1);
+  } else if (key === '.'){
+    if (v.includes('.')) return;      // only one decimal point
+    if (v === '') v = '0';            // leading "." becomes "0."
+    v += '.';
+  } else {
+    // Avoid meaningless leading zeros like "00" (but keep "0." intact).
+    if (v === '0') v = key;
+    else v += key;
+  }
+  el.value = v;
+  calcSizer();
+}
+document.querySelectorAll('.kp-key').forEach(btn=>{
+  // Use mousedown + preventDefault so tapping a key doesn't blur the field.
+  btn.addEventListener('mousedown', (e)=> e.preventDefault());
+  btn.addEventListener('click', ()=> keypadPress(btn.dataset.key));
 });
 
 // Size rounding precision: highlight the active button and recompute.
@@ -1948,6 +2005,7 @@ function init(){
   setDirection('long');
   updatePrecisionButtons();
   applyPrivacy();
+  applyKeypad();
   selectInstrument('ES');
   renderInstrumentList();
   renderDashboard();
