@@ -183,18 +183,20 @@
 
       <div class="mt-auto space-y-3">
         <div id="syncStatus" class="w-full flex items-center justify-center gap-2 text-xs text-faint px-4 py-1.5">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
-          <span id="syncStatusText">Synced to your account</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M3 12h18"/></svg>
+          <span id="syncStatusText">Saved on this device</span>
         </div>
         <button id="themeToggle" class="theme-toggle w-full flex items-center justify-center gap-2 text-sm text-muted border border-line rounded-xl px-4 py-2.5 hover:border-gold/40 hover:text-gold transition"></button>
         <button id="openAccountBtn" class="w-full text-left bg-panel2 border border-line rounded-xl px-4 py-3 hover:border-gold/40 transition">
           <div class="text-[10px] uppercase tracking-wide text-faint">Account Balance</div>
           <div id="sidebarAccount" class="num sensitive text-lg font-semibold text-gold">$10,000.00</div>
         </button>
-        <div class="flex items-center justify-between gap-2 border border-line rounded-xl px-3 py-2">
-          <span id="userEmail" class="text-xs text-muted truncate" title="">Loading…</span>
-          <button id="logoutBtn" class="text-xs text-faint hover:text-loss transition shrink-0">Log out</button>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="saveDataBtn" class="btn-ghost text-xs">Save file</button>
+          <button id="loadDataBtn" class="btn-ghost text-xs">Upload file</button>
         </div>
+        <input id="loadDataInput" type="file" accept="application/json,.json" class="hidden" aria-label="Upload saved TradeSafe file" />
+        <div class="text-center text-[10px] text-faint leading-relaxed">Your data stays on this device unless you save and move the file.</div>
       </div>
     </aside>
 
@@ -853,114 +855,13 @@
   <!-- TOAST -->
   <div id="toast" class="hidden fixed bottom-20 lg:bottom-6 left-1/2 -translate-x-1/2 z-[60] bg-panel2 border border-gold/40 text-sm px-4 py-2.5 rounded-lg shadow-lg"></div>
 
-  <!-- Cloud sync bootstrap: hydrate localStorage from the user's account
-       BEFORE the app boots, then load the app, then keep pushing changes. -->
+  <!-- Local-only bootstrap: load the app directly. Data is saved explicitly
+       through the Save file and Upload file controls in the sidebar. -->
   <script>
   (function(){
-    var TOKEN_KEY = 'ts_bearer_token';
-    var token = null;
-    try { token = localStorage.getItem(TOKEN_KEY); } catch(e){}
-
-    // Auth is a client-side bearer token (works inside cross-origin iframes like
-    // Whop, where cookies are blocked). No token => not signed in => go log in.
-    if (!token){ window.location.replace('/sign-in'); return; }
-
-    function authHeaders(extra){
-      var h = extra || {};
-      h['Authorization'] = 'Bearer ' + token;
-      return h;
-    }
-
-    var SYNC_KEYS = ['rl_account_balance','rl_favorites','rl_instrument_defaults','rl_trades','ts_theme','ts_backtests','ts_size_precision','ts_privacy','ts_rr_period','ts_win_period','ts_keypad','ts_tod_buckets_journal','ts_tod_buckets_backtest'];
-    var UPLOADED_FLAG = 'ts_cloud_seeded';
-
-    function collectLocal(){
-      var out = {};
-      for (var i=0;i<SYNC_KEYS.length;i++){
-        var k = SYNC_KEYS[i];
-        var v = localStorage.getItem(k);
-        if (v !== null) out[k] = v; // store raw JSON strings
-      }
-      return out;
-    }
-
-    function applyCloud(data){
-      if (!data || typeof data !== 'object') return;
-      for (var i=0;i<SYNC_KEYS.length;i++){
-        var k = SYNC_KEYS[i];
-        if (Object.prototype.hasOwnProperty.call(data, k) && data[k] != null){
-          try { localStorage.setItem(k, data[k]); } catch(e){}
-        }
-      }
-    }
-
-    // Debounced push of current local data up to the account.
-    var pushTimer = null, pushing = false, pendingAgain = false;
-    function doPush(){
-      if (pushing){ pendingAgain = true; return; }
-      pushing = true;
-      fetch('/api/sync', {
-        method:'PUT',
-        headers: authHeaders({'content-type':'application/json'}),
-        body: JSON.stringify({ data: collectLocal() }),
-      }).catch(function(){}).finally(function(){
-        pushing = false;
-        if (pendingAgain){ pendingAgain = false; doPush(); }
-      });
-    }
-    window.__tsPushCloud = function(){
-      clearTimeout(pushTimer);
-      pushTimer = setTimeout(doPush, 800);
-    };
-
-    function loadApp(){
-      var s = document.createElement('script');
-      s.src = '/app/script?v=28';
-      document.body.appendChild(s);
-    }
-
-    // 1. Pull the account's data first.
-    fetch('/api/sync', { headers: authHeaders({'accept':'application/json'}) })
-      .then(function(r){
-        // Token expired or invalid: clear it and send the user back to log in.
-        if (r.status === 401){
-          try { localStorage.removeItem(TOKEN_KEY); } catch(e){}
-          window.location.replace('/sign-in');
-          return null;
-        }
-        return r.ok ? r.json() : null;
-      })
-      .then(function(res){
-        var cloud = res && res.data ? res.data : {};
-        var cloudHasData = cloud && Object.keys(cloud).length > 0;
-        var localHasData = SYNC_KEYS.some(function(k){ return localStorage.getItem(k) !== null; });
-
-        if (cloudHasData){
-          // Cloud wins on load.
-          applyCloud(cloud);
-          try { localStorage.setItem(UPLOADED_FLAG, '1'); } catch(e){}
-          loadApp();
-        } else if (localHasData && !localStorage.getItem(UPLOADED_FLAG)){
-          // First login with existing browser data: offer to upload it.
-          var wantUpload = window.confirm(
-            'Welcome! We found trading data saved in this browser.\n\n' +
-            'Upload it to your account so it syncs across your devices?\n\n' +
-            'OK = upload this data   |   Cancel = start fresh in the cloud'
-          );
-          try { localStorage.setItem(UPLOADED_FLAG, '1'); } catch(e){}
-          if (wantUpload){
-            doPush();
-          } else {
-            // Start fresh: clear local so the empty cloud is the source of truth.
-            SYNC_KEYS.forEach(function(k){ try{ localStorage.removeItem(k); }catch(e){} });
-          }
-          loadApp();
-        } else {
-          // Nothing anywhere yet, or already seeded: just boot.
-          loadApp();
-        }
-      })
-      .catch(function(){ loadApp(); });
+    var s = document.createElement('script');
+    s.src = '/app/script?v=29';
+    document.body.appendChild(s);
   })();
   </script>
 </body>
