@@ -90,7 +90,7 @@ function defaultTodBuckets(){
   ];
 }
 function load(key, fallback){ try{ const v = localStorage.getItem(key); return v===null? fallback : JSON.parse(v); }catch(e){ return fallback; } }
-function save(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){ console.error('Storage failed', e); } try{ if(window.__tsPushCloud) window.__tsPushCloud(); }catch(e){} }
+function save(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){ console.error('Storage failed', e); } }
 
 let state = {
   account: load(LS.account, 10000),
@@ -1961,40 +1961,58 @@ function bindTodEditor(){
   });
 }
 
-/* ---- account controls (email display + log out) ---- */
-var TOKEN_KEY = 'ts_bearer_token';
-function bearerToken(){ try { return localStorage.getItem(TOKEN_KEY) || ''; } catch(e){ return ''; } }
-function authHeaders(extra){ var h = extra || {}; var t = bearerToken(); if (t) h['Authorization'] = 'Bearer ' + t; return h; }
-
-function bindAccount(){
-  // Populate the signed-in user's email from Better Auth (bearer-token authed).
-  fetch('/api/auth/get-session', { headers: authHeaders({ 'accept':'application/json' }) })
-    .then(r=> r.ok ? r.json() : null)
-    .then(res=>{
-      const email = res && res.user && res.user.email;
-      const el = document.getElementById('userEmail');
-      if (el && email){ el.textContent = email; el.title = email; }
-      else if (el){ el.textContent = 'Signed in'; }
-    })
-    .catch(()=>{ const el = document.getElementById('userEmail'); if (el) el.textContent = 'Signed in'; });
-
-  const logoutBtn = document.getElementById('logoutBtn');
-  if (logoutBtn) logoutBtn.addEventListener('click', ()=>{
-    fetch('/api/auth/sign-out', { method:'POST', headers: authHeaders({ 'content-type':'application/json' }), body:'{}' })
-      .catch(()=>{})
-      .finally(()=>{
-        // Clear the local token so the app treats the user as signed out.
-        try { localStorage.removeItem(TOKEN_KEY); } catch(e){}
-        location.href = '/sign-in';
+/* ---- local file backup controls ---- */
+const BACKUP_VERSION = 1;
+function collectBackup(){
+  const data = {};
+  for (let i=0; i<localStorage.length; i++){
+    const key = localStorage.key(i);
+    if (key && key !== 'ts_bearer_token') data[key] = localStorage.getItem(key);
+  }
+  return { app: 'TradeSafe', version: BACKUP_VERSION, savedAt: new Date().toISOString(), data };
+}
+function downloadBackup(){
+  const blob = new Blob([JSON.stringify(collectBackup(), null, 2)], { type:'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'tradesafe-backup-' + new Date().toISOString().slice(0,10) + '.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+  toast('TradeSafe data saved to a file.');
+}
+function restoreBackup(file){
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const backup = JSON.parse(reader.result);
+      if (!backup || backup.app !== 'TradeSafe' || !backup.data || typeof backup.data !== 'object') throw new Error('invalid');
+      const confirmed = window.confirm('Restore this TradeSafe file? Existing data on this device will be replaced.');
+      if (!confirmed) return;
+      Object.keys(backup.data).forEach(key=>{
+        if (key !== 'ts_bearer_token' && typeof backup.data[key] === 'string') localStorage.setItem(key, backup.data[key]);
       });
-  });
+      toast('Backup restored. Reloading TradeSafe…');
+      setTimeout(()=>window.location.reload(), 500);
+    }catch(e){ toast('That file is not a valid TradeSafe backup.'); }
+  };
+  reader.readAsText(file);
+}
+function bindFileBackup(){
+  const saveBtn = document.getElementById('saveDataBtn');
+  const loadBtn = document.getElementById('loadDataBtn');
+  const input = document.getElementById('loadDataInput');
+  if (saveBtn) saveBtn.addEventListener('click', downloadBackup);
+  if (loadBtn && input) loadBtn.addEventListener('click', ()=>input.click());
+  if (input) input.addEventListener('change', ()=>{ restoreBackup(input.files && input.files[0]); input.value = ''; });
 }
 
 function init(){
   applyTheme();
   hideIntro();
   bindTodEditor();
-  bindAccount();
+  bindFileBackup();
   const tt = document.getElementById('themeToggle');
   if (tt) tt.addEventListener('click', toggleTheme);
   const ttm = document.getElementById('themeToggleMobile');
