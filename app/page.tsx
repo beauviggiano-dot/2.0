@@ -1,4 +1,6 @@
 import { headers } from "next/headers";
+import { readFile } from "fs/promises";
+import path from "path";
 import Whop from "@whop/sdk";
 
 const whopsdk = new Whop({
@@ -8,13 +10,19 @@ const whopsdk = new Whop({
 
 export default async function Page() {
   try {
+    // 1. Verify the user is coming from Whop
     await whopsdk.verifyUserToken(await headers());
 
+    // 2. Read your real journal HTML file
+    const htmlPath = path.join(process.cwd(), "public", "tradsafe.html");
+    const html = await readFile(htmlPath, "utf-8");
+
+    // 3. Return the real journal
     return (
-      <div style={{ padding: "40px", fontFamily: "system-ui" }}>
-        <h1>Authentication works!</h1>
-        <p>We will now load your real journal.</p>
-      </div>
+      <div
+        dangerouslySetInnerHTML={{ __html: html }}
+        style={{ width: "100%", height: "100vh" }}
+      />
     );
   } catch (error) {
     return (
