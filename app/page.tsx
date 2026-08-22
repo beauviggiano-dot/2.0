@@ -7,21 +7,27 @@ const whopsdk = new Whop({
 
 export default async function Page() {
   try {
-    // Just verify the user is coming from Whop
-    await whopsdk.verifyUserToken(await headers());
+    const headersList = await headers();
+    const { userId } = await whopsdk.verifyUserToken(headersList);
 
-    // User is allowed → show your real journal
     return (
-      <div>
-        <h1>TradeSafe Journal</h1>
-        {/* Put the rest of your journal UI here later */}
+      <div style={{ padding: "40px", fontFamily: "system-ui" }}>
+        <h1>Success!</h1>
+        <p>User ID: {userId}</p>
+        <p>You are correctly authenticated through Whop.</p>
       </div>
     );
-  } catch (error) {
+  } catch (error: any) {
     return (
-      <div style={{ padding: "60px", textAlign: "center", fontFamily: "system-ui" }}>
+      <div style={{ padding: "40px", fontFamily: "system-ui" }}>
         <h1>Access Denied</h1>
-        <p>Please open this tool through your Whop membership.</p>
+        <p><strong>Error message:</strong></p>
+        <pre style={{ background: "#f5f5f5", padding: "15px", overflow: "auto" }}>
+          {error?.message || String(error)}
+        </pre>
+        <p style={{ marginTop: "20px" }}>
+          Please open this tool through your Whop membership.
+        </p>
       </div>
     );
   }
