@@ -1,5 +1,4 @@
 import { headers } from "next/headers";
-import { redirect } from "next/navigation";
 import Whop from "@whop/sdk";
 
 const whopsdk = new Whop({
@@ -9,13 +8,15 @@ const whopsdk = new Whop({
 
 export default async function Page() {
   try {
-    // Verify the user is coming from Whop
     await whopsdk.verifyUserToken(await headers());
 
-    // User is allowed → send them to the real journal
-    redirect("/tradsafe.html");
+    return (
+      <div style={{ padding: "40px", fontFamily: "system-ui" }}>
+        <h1>Authentication works!</h1>
+        <p>We will now load your real journal.</p>
+      </div>
+    );
   } catch (error) {
-    // Not coming from Whop
     return (
       <div style={{ padding: "60px", textAlign: "center", fontFamily: "system-ui" }}>
         <h1>Access Denied</h1>
