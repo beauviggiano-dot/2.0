@@ -13,9 +13,8 @@ export default async function Page() {
     // User is allowed → show your real journal
     return (
       <div>
-        {/* Put your normal journal UI here */}
         <h1>TradeSafe Journal</h1>
-        {/* ... the rest of your existing journal code ... */}
+        {/* Put the rest of your journal UI here later */}
       </div>
     );
   } catch (error) {
@@ -25,7 +24,5 @@ export default async function Page() {
         <p>Please open this tool through your Whop membership.</p>
       </div>
     );
-  }
-}
   }
 }
