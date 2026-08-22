@@ -3,6 +3,7 @@ import Whop from "@whop/sdk";
 
 const whopsdk = new Whop({
   apiKey: process.env.WHOP_API_KEY!,
+  appID: process.env.NEXT_PUBLIC_WHOP_APP_ID!,   // ← this line was missing
 });
 
 export default async function Page() {
@@ -25,9 +26,6 @@ export default async function Page() {
         <pre style={{ background: "#f5f5f5", padding: "15px", overflow: "auto" }}>
           {error?.message || String(error)}
         </pre>
-        <p style={{ marginTop: "20px" }}>
-          Please open this tool through your Whop membership.
-        </p>
       </div>
     );
   }
