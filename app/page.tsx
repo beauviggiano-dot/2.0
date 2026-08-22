@@ -1,6 +1,4 @@
 import { headers } from "next/headers";
-import { readFile } from "fs/promises";
-import path from "path";
 import Whop from "@whop/sdk";
 
 const whopsdk = new Whop({
@@ -10,18 +8,20 @@ const whopsdk = new Whop({
 
 export default async function Page() {
   try {
-    // 1. Verify the user is coming from Whop
+    // Verify the user is coming from Whop
     await whopsdk.verifyUserToken(await headers());
 
-    // 2. Read your real journal HTML file
-    const htmlPath = path.join(process.cwd(), "public", "tradsafe.html");
-    const html = await readFile(htmlPath, "utf-8");
-
-    // 3. Return the real journal
+    // Show the real journal inside an iframe
     return (
-      <div
-        dangerouslySetInnerHTML={{ __html: html }}
-        style={{ width: "100%", height: "100vh" }}
+      <iframe
+        src="/tradsafe.html"
+        style={{
+          width: "100%",
+          height: "100vh",
+          border: "none",
+          display: "block",
+        }}
+        title="TradeSafe Journal"
       />
     );
   } catch (error) {
