@@ -1,4 +1,6 @@
 import { headers } from "next/headers";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import Whop from "@whop/sdk";
 
 const whopsdk = new Whop({
@@ -8,25 +10,31 @@ const whopsdk = new Whop({
 
 export default async function Page() {
   try {
-    // Verify the user is coming from Whop
+    // 1. Verify the user is coming from Whop
     await whopsdk.verifyUserToken(await headers());
 
-    // Show the real journal inside an iframe
+    // 2. Load the real journal from the private folder
+    const html = await readFile(
+      join(process.cwd(), "private", "tradesafe.html"),
+      "utf8"
+    );
+
+    // 3. Return the journal
     return (
-      <iframe
-        src="/tradsafe.html"
-        style={{
-          width: "100%",
-          height: "100vh",
-          border: "none",
-          display: "block",
-        }}
-        title="TradeSafe Journal"
+      <div
+        dangerouslySetInnerHTML={{ __html: html }}
+        style={{ width: "100%", height: "100vh", margin: 0, padding: 0 }}
       />
     );
   } catch (error) {
     return (
-      <div style={{ padding: "60px", textAlign: "center", fontFamily: "system-ui" }}>
+      <div
+        style={{
+          padding: "60px",
+          textAlign: "center",
+          fontFamily: "system-ui",
+        }}
+      >
         <h1>Access Denied</h1>
         <p>Please open this tool through your Whop membership.</p>
       </div>
