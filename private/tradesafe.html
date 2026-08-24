@@ -145,6 +145,10 @@
       <span class="font-display font-bold tracking-wide">TradeSafe</span>
     </div>
     <div class="flex items-center gap-2">
+      <div class="flex items-center gap-1">
+        <button id="saveDataMobileBtn" class="btn-ghost text-[11px] px-2 py-1.5" type="button">Save</button>
+        <button id="loadDataMobileBtn" class="btn-ghost text-[11px] px-2 py-1.5" type="button">Upload</button>
+      </div>
       <button id="themeToggleMobile" class="theme-toggle p-2 rounded-lg border border-line text-muted hover:text-gold transition" aria-label="Toggle theme"></button>
       <button id="mobileAccountBtn" class="num sensitive text-sm text-gold border border-goldSoft rounded-lg px-3 py-1.5">$10,000</button>
     </div>
@@ -899,7 +903,7 @@
   <script>
   (function(){
     var s = document.createElement('script');
-    s.src = '/app/script?v=39';
+    s.src = '/app/script?v=40';
     document.body.appendChild(s);
   })();
   </script>
