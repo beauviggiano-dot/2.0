@@ -680,7 +680,7 @@
             <div class="bg-panel border border-line rounded-2xl p-5"><div class="flex items-center justify-between mb-3"><div><h2 class="font-display font-semibold">Journal trades</h2><p class="text-xs text-muted mt-1">Select up to 8 trades to include in the next review.</p></div><span id="analystTradeCount" class="text-xs text-faint">0 selected</span></div><div id="analystTradeList" class="flex flex-col gap-2 max-h-80 overflow-auto"></div></div>
           </div>
           <div class="bg-panel border border-line rounded-2xl p-5 flex flex-col min-h-[620px]">
-            <div class="flex items-center justify-between gap-3 border-b border-line pb-4"><div><h2 class="font-display font-semibold">Analysis workspace</h2><p class="text-xs text-muted mt-1">Explain what happened. Your analyst will compare it with your rules and inspect attached chart screenshots.</p></div><span id="analystContextStatus" class="text-xs text-faint">No trades selected</span></div>
+            <div class="flex items-center justify-between gap-3 border-b border-line pb-4"><div><h2 class="font-display font-semibold">Analysis workspace</h2><p class="text-xs text-muted mt-1">Explain what happened. Your analyst will compare it with your rules and inspect attached chart screenshots.</p></div><div class="flex items-center gap-3"><button id="analystClearWorkspaceBtn" type="button" class="btn-ghost text-xs">Clear workspace</button><span id="analystContextStatus" class="text-xs text-faint">No trades selected</span></div></div>
             <div id="analystSelectedTrades" class="grid gap-2 py-4"></div>
             <div id="analystGrades" class="hidden border border-line rounded-xl p-3 mb-3"><div class="text-xs uppercase tracking-wide text-faint mb-2">Strategy adherence grades</div><div id="analystGradeList" class="flex flex-wrap gap-2"></div></div>
             <div id="analystMessages" class="flex-1 overflow-auto flex flex-col gap-3 py-3"><div class="text-sm text-muted rounded-xl border border-dashed border-line p-4">Start by saving your strategy profile, selecting a journal trade, and describing what you saw.</div></div>
@@ -899,7 +899,7 @@
   <script>
   (function(){
     var s = document.createElement('script');
-    s.src = '/app/script?v=37';
+    s.src = '/app/script?v=38';
     document.body.appendChild(s);
   })();
   </script>
