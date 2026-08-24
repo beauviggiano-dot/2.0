@@ -78,6 +78,9 @@ const LS = {
   rrPeriod: 'ts_rr_period',
   winPeriod: 'ts_win_period',
   keypad: 'ts_keypad',
+  analystProfile: 'ts_analyst_profile',
+  analystHistory: 'ts_analyst_history',
+  analystSelected: 'ts_analyst_selected',
   todJournal: 'ts_tod_buckets_journal',
   todBacktest: 'ts_tod_buckets_backtest',
 };
@@ -107,6 +110,9 @@ let state = {
   rrPeriod: load(LS.rrPeriod, 'month'), // avg R:R window: week, month, year, all
   winPeriod: load(LS.winPeriod, '30d'), // win rate window: 30d, week, month, year, all
   keypad: load(LS.keypad, false), // show the on-screen keypad in the risk sizer
+  analystProfile: load(LS.analystProfile, {}),
+  analystHistory: load(LS.analystHistory, []),
+  analystSelected: load(LS.analystSelected, []),
   todJournal: load(LS.todJournal, defaultTodBuckets()),
   todBacktest: load(LS.todBacktest, defaultTodBuckets()),
   todEditTarget: null, // 'journal' | 'backtest' while editing buckets
@@ -178,6 +184,7 @@ function setView(view){
   if (view==='journal') renderJournal();
   if (view==='calendar') renderCalendar();
   if (view==='backtest') renderBacktest();
+  if (view==='trade-analyst') renderTradeAnalyst();
   window.scrollTo({top:0});
 }
 document.querySelectorAll('[data-view]').forEach(btn=>{
@@ -1883,6 +1890,39 @@ function bindBacktestControls(){
 }
 
 /* ================================================================
+   TRADE ANALYST
+   ================================================================ */
+function analystProfileFromDom(){
+  return { name: document.getElementById('analystStrategyName').value.trim(), market: document.getElementById('analystMarket').value.trim(), setup: document.getElementById('analystSetupRules').value.trim(), entryExit: document.getElementById('analystEntryExit').value.trim(), risk: document.getElementById('analystRiskRules').value.trim(), invalidation: document.getElementById('analystInvalidation').value.trim(), notes: document.getElementById('analystNotes').value.trim() };
+}
+function analystProfileText(){ const p=state.analystProfile||{}; return ['Strategy: '+(p.name||'Not named'), 'Markets: '+(p.market||'Not specified'), 'Setup rules: '+(p.setup||'Not specified'), 'Entry/exit: '+(p.entryExit||'Not specified'), 'Risk rules: '+(p.risk||'Not specified'), 'Invalidation/mistakes: '+(p.invalidation||'Not specified'), 'Notes: '+(p.notes||'None')].join('\n'); }
+function analystEscape(v){ return String(v??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function renderAnalystProfile(){ const p=state.analystProfile||{}; const map={analystStrategyName:p.name,analystMarket:p.market,analystSetupRules:p.setup,analystEntryExit:p.entryExit,analystRiskRules:p.risk,analystInvalidation:p.invalidation,analystNotes:p.notes}; Object.entries(map).forEach(([id,v])=>{const el=document.getElementById(id); if(el) el.value=v||'';}); }
+function analystTradeSummary(t){ return (t.date||'No date')+' · '+(t.instrument||'Trade')+' · '+(t.direction||'')+' · '+(t.pnl==null?'Open':fmtMoney(t.pnl)); }
+function renderAnalystTrades(){
+  const list=document.getElementById('analystTradeList'), selected=document.getElementById('analystSelectedTrades'); if(!list||!selected)return;
+  list.innerHTML=state.trades.length ? state.trades.slice().reverse().map(t=>{const checked=state.analystSelected.includes(t.id); return `<label class="flex items-center gap-3 border border-line rounded-lg p-3 cursor-pointer hover:border-gold/40"><input type="checkbox" class="analyst-trade-check accent-gold" data-id="${analystEscape(t.id)}" ${checked?'checked':''}><span class="min-w-0"><span class="block text-sm truncate">${analystEscape(analystTradeSummary(t))}</span><span class="block text-xs text-faint truncate">${analystEscape(t.notes||'No journal notes')}${((t.screenshots||[]).length?' · '+t.screenshots.length+' screenshot(s)':'')}</span></span></label>`;}).join('') : '<div class="text-sm text-muted py-5">No journaled trades yet. Add one in Journal first.</div>';
+  const chosen=state.trades.filter(t=>state.analystSelected.includes(t.id));
+  document.getElementById('analystTradeCount').textContent=chosen.length+' selected';
+  document.getElementById('analystContextStatus').textContent=chosen.length?chosen.length+' trade'+(chosen.length===1?'':'s')+' ready':'No trades selected';
+  selected.innerHTML=chosen.length ? chosen.map(t=>`<div class="border border-line rounded-lg p-3"><div class="text-sm font-medium">${analystEscape(analystTradeSummary(t))}</div><div class="text-xs text-muted mt-1">${analystEscape(t.notes||'No journal notes')}</div>${(t.screenshots||[]).slice(0,3).map((s,i)=>`<img src="${analystEscape(s)}" alt="Screenshot ${i+1}" class="mt-2 max-h-36 rounded border border-line object-contain">`).join('')}</div>`).join('') : '<div class="text-xs text-faint">Selected journal trade notes and screenshots will appear here.</div>';
+  list.querySelectorAll('.analyst-trade-check').forEach(input=>input.addEventListener('change',()=>{ const id=input.dataset.id; if(input.checked){if(state.analystSelected.length>=8){input.checked=false;toast('Select up to 8 trades.');return;} if(!state.analystSelected.includes(id))state.analystSelected.push(id);}else state.analystSelected=state.analystSelected.filter(x=>x!==id); save(LS.analystSelected,state.analystSelected); renderAnalystTrades(); }));
+}
+function appendAnalystMessage(role,text){ const wrap=document.getElementById('analystMessages'); const el=document.createElement('div'); el.className='rounded-xl border border-line p-3 text-sm whitespace-pre-wrap '+(role==='user'?'bg-panel2 ml-6':'bg-background mr-6'); el.textContent=text; wrap.appendChild(el); wrap.scrollTop=wrap.scrollHeight; return el; }
+async function analyzeTrade(){
+  const error=document.getElementById('analystError'), btn=document.getElementById('analystAnalyzeBtn'), explanation=document.getElementById('analystExplanation'); error.textContent=''; const text=explanation.value.trim(); if(!state.analystProfile || !Object.values(state.analystProfile).some(Boolean)){error.textContent='Save your strategy profile first.';return;} if(!text){error.textContent='Explain the trade before analyzing it.';return;}
+  const trades=state.trades.filter(t=>state.analystSelected.includes(t.id)).map(t=>({date:t.date,instrument:t.instrument,direction:t.direction,pnl:t.pnl,outcome:t.outcome,notes:t.notes,screenshots:t.screenshots||[] })); appendAnalystMessage('user',text); explanation.value=''; btn.disabled=true; btn.textContent='Analyzing…'; const assistant=appendAnalystMessage('assistant','');
+  try{ const res=await fetch('/api/trade-analyst',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({profile:analystProfileText(),trades,explanation:text})}); if(!res.ok) throw new Error((await res.json()).error||'Analysis unavailable'); const reader=res.body.getReader(), decoder=new TextDecoder(); let answer=''; while(true){const part=await reader.read(); if(part.done)break; answer+=decoder.decode(part.value,{stream:true}); assistant.textContent=answer; } state.analystHistory.push({role:'user',text}); state.analystHistory.push({role:'assistant',text:answer}); save(LS.analystHistory,state.analystHistory); }catch(e){assistant.textContent=''; error.textContent=e.message||'Analysis unavailable.';} finally{btn.disabled=false;btn.textContent='Analyze trade';}
+}
+function renderAnalystHistory(){ const wrap=document.getElementById('analystMessages'); if(!wrap||!state.analystHistory.length)return; wrap.innerHTML=''; state.analystHistory.slice(-10).forEach(m=>appendAnalystMessage(m.role,m.text)); }
+function renderTradeAnalyst(){ renderAnalystProfile(); renderAnalystTrades(); renderAnalystHistory(); }
+function bindTradeAnalyst(){
+  document.getElementById('analystSaveProfileBtn').addEventListener('click',()=>{state.analystProfile=analystProfileFromDom();save(LS.analystProfile,state.analystProfile);document.getElementById('analystSavedStatus').textContent='Profile saved locally';toast('Strategy profile saved. Include it with Save file.');});
+  document.getElementById('analystAnalyzeBtn').addEventListener('click',analyzeTrade);
+  document.getElementById('analystResetBtn').addEventListener('click',()=>{if(!confirm('Reset your strategy profile, selected trades, and analyst chat?'))return;state.analystProfile={};state.analystSelected=[];state.analystHistory=[];save(LS.analystProfile,{});save(LS.analystSelected,[]);save(LS.analystHistory,[]);renderTradeAnalyst();});
+}
+
+/* ================================================================
    INIT
    ================================================================ */
 /* ---- customizable time-of-day editor modal ---- */
@@ -2013,6 +2053,7 @@ function init(){
   hideIntro();
   bindTodEditor();
   bindFileBackup();
+  bindTradeAnalyst();
   const tt = document.getElementById('themeToggle');
   if (tt) tt.addEventListener('click', toggleTheme);
   const ttm = document.getElementById('themeToggleMobile');
