@@ -2041,9 +2041,13 @@ function restoreBackup(file){
 function bindFileBackup(){
   const saveBtn = document.getElementById('saveDataBtn');
   const loadBtn = document.getElementById('loadDataBtn');
+  const saveMobileBtn = document.getElementById('saveDataMobileBtn');
+  const loadMobileBtn = document.getElementById('loadDataMobileBtn');
   const input = document.getElementById('loadDataInput');
   if (saveBtn) saveBtn.addEventListener('click', downloadBackup);
+  if (saveMobileBtn) saveMobileBtn.addEventListener('click', downloadBackup);
   if (loadBtn && input) loadBtn.addEventListener('click', ()=>input.click());
+  if (loadMobileBtn && input) loadMobileBtn.addEventListener('click', ()=>input.click());
   if (input) input.addEventListener('change', ()=>{ restoreBackup(input.files && input.files[0]); input.value = ''; });
 }
 
