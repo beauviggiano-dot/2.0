@@ -75,6 +75,9 @@
 
     .num { font-family:'JetBrains Mono', ui-monospace, monospace; font-variant-numeric:tabular-nums; }
 
+    /* Keep analyst responses readable in both themes. */
+    #analystMessages .analyst-message { color:rgb(var(--c-fg)); background:rgb(var(--c-panel)); }
+
     /* Privacy blur: hide P&L values (e.g. while streaming) */
     .privacy-on .sensitive { filter:blur(8px); transition:filter .12s; user-select:none; cursor:default; }
     .privacy-on .sensitive:hover { filter:blur(8px); }
@@ -896,7 +899,7 @@
   <script>
   (function(){
     var s = document.createElement('script');
-    s.src = '/app/script?v=36';
+    s.src = '/app/script?v=37';
     document.body.appendChild(s);
   })();
   </script>
