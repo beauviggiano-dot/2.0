@@ -1917,6 +1917,7 @@ function renderTradeAnalyst(){ renderAnalystProfile(); renderAnalystTrades(); re
 function bindTradeAnalyst(){
   document.getElementById('analystSaveProfileBtn').addEventListener('click',()=>{state.analystProfile=analystProfileFromDom();save(LS.analystProfile,state.analystProfile);document.getElementById('analystSavedStatus').textContent='Profile saved locally';toast('Strategy profile saved. Include it with Save file.');});
   document.getElementById('analystAnalyzeBtn').addEventListener('click',analyzeTrade);
+  document.getElementById('analystClearWorkspaceBtn').addEventListener('click',()=>{ if(!confirm('Clear selected trades and analyst history from this workspace?')) return; state.analystSelected=[]; state.analystHistory=[]; save(LS.analystSelected,[]); save(LS.analystHistory,[]); renderTradeAnalyst(); toast('Analysis workspace cleared.'); });
   document.getElementById('analystResetBtn').addEventListener('click',()=>{if(!confirm('Reset your strategy profile, selected trades, and analyst chat?'))return;state.analystProfile={};state.analystSelected=[];state.analystHistory=[];save(LS.analystProfile,{});save(LS.analystSelected,[]);save(LS.analystHistory,[]);renderTradeAnalyst();});
 }
 
