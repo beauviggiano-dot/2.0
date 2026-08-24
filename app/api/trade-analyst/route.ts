@@ -39,7 +39,7 @@ export async function POST(request: Request) {
       "USER STRATEGY PROFILE:\n" + profile,
       "\nJOURNAL TRADES:\n" + JSON.stringify(tradeContext),
       "\nUSER'S TRADE EXPLANATION:\n" + explanation,
-      "\nAnalyze whether the trade followed the user's stated strategy. Reference concrete facts from the journal and screenshots when available. Separate facts, likely interpretations, and open questions. Give practical, non-prescriptive coaching. Do not invent missing chart details, and do not provide financial advice or tell the user what to buy or sell.",
+      "\nAnalyze each selected trade independently against the user's stated strategy. For EVERY trade, assign exactly one strategy-adherence grade from this scale: A+ (exceptional execution and rule adherence), A (strong adherence), B (mostly followed with minor deviation), C (mixed adherence or important uncertainty), D (major rule violations), F (fundamentally contrary to the strategy). Profit or loss must never determine the grade; grade the process and strategy adherence. Start each trade section with the exact machine-readable line `GRADE: Trade 1 = A+` using the actual trade number and one valid grade. Then explain the evidence, deviations, uncertainty, and one practical improvement. Reference concrete facts from the journal and screenshots when available. Separate facts, likely interpretations, and open questions. Give practical, non-prescriptive coaching. Do not invent missing chart details, and do not provide financial advice or tell the user what to buy or sell.",
     ].join("\n")
 
     const result = streamText({
