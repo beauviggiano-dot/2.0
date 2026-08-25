@@ -477,11 +477,12 @@ document.getElementById('logTradeBtn').addEventListener('click', ()=>{
 function activeAccounts(){ return state.activeAccount==='all' ? state.accounts : state.accounts.filter(a=>a.id===state.activeAccount); }
 function tradeBelongsToAccount(t, accountId){ return t.accountId===accountId || (!t.accountId && accountId==='default'); }
 function accountTrades(){ return state.activeAccount==='all' ? state.trades : state.trades.filter(t=>tradeBelongsToAccount(t,state.activeAccount)); }
+function scopedTrades(){ return accountTrades(); }
 function realizedPnl(){ return accountTrades().reduce((s,t)=>s+(t.pnl||0),0); }
 function currentBalance(){ return activeAccounts().reduce((s,a)=>s+accountBalance(a),0); }
 function accountBalance(a){ return a.startingBalance + state.trades.filter(t=>tradeBelongsToAccount(t,a.id)).reduce((s,t)=>s+(t.pnl||0),0); }
 function refreshAccountDisplays(){ const bal=currentBalance(); document.getElementById('sidebarAccount').textContent=fmtMoney(bal); document.getElementById('mobileAccountBtn').textContent='$'+Math.round(bal).toLocaleString(); }
-function renderAccountList(){ const el=document.getElementById('accountList'); if(!el)return; const all=`<button type="button" class="text-left border ${state.activeAccount==='all'?'border-gold':'border-line'} rounded-xl p-3 bg-panel2" data-account="all"><div class="font-medium">All accounts</div><div class="text-xs text-muted mt-1">Combined balance · ${fmtMoney(currentBalance())}</div></button>`; el.innerHTML=all+state.accounts.map(a=>`<div class="flex items-center gap-2 border ${state.activeAccount===a.id?'border-gold':'border-line'} rounded-xl p-3 ${a.blown?'opacity-45':''}"><button type="button" class="text-left flex-1 min-w-0" data-account="${a.id}"><div class="flex justify-between gap-2"><span class="font-medium truncate">${a.title}</span><span class="text-[10px] uppercase text-faint">${a.category}</span></div><div class="text-xs text-muted mt-1">${a.blown?'Blown · ':''}${fmtMoney(accountBalance(a))}</div></button><button type="button" class="btn-ghost text-xs shrink-0" data-edit-account="${a.id}">Edit</button></div>`).join(''); el.querySelectorAll('[data-account]').forEach(b=>b.addEventListener('click',()=>{state.activeAccount=b.dataset.account;save(LS.activeAccount,state.activeAccount);refreshAccountDisplays();calcSizer();renderDashboard();renderAccountList();editAccount(state.activeAccount!=='all'?state.accounts.find(a=>a.id===state.activeAccount):null);})); el.querySelectorAll('[data-edit-account]').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();editAccount(state.accounts.find(a=>a.id===b.dataset.editAccount));})); }
+function renderAccountList(){ const el=document.getElementById('accountList'); if(!el)return; const all=`<button type="button" class="text-left border ${state.activeAccount==='all'?'border-gold':'border-line'} rounded-xl p-3 bg-panel2" data-account="all"><div class="font-medium">All accounts</div><div class="text-xs text-muted mt-1">Combined balance · ${fmtMoney(currentBalance())}</div></button>`; el.innerHTML=all+state.accounts.map(a=>`<div class="flex items-center gap-2 border ${state.activeAccount===a.id?'border-gold':'border-line'} rounded-xl p-3 ${a.blown?'opacity-45':''}"><button type="button" class="text-left flex-1 min-w-0" data-account="${a.id}"><div class="flex justify-between gap-2"><span class="font-medium truncate">${a.title}</span><span class="text-[10px] uppercase text-faint">${a.category}</span></div><div class="text-xs text-muted mt-1">${a.blown?'Blown · ':''}${fmtMoney(accountBalance(a))}</div></button><button type="button" class="btn-ghost text-xs shrink-0" data-edit-account="${a.id}">Edit</button></div>`).join(''); el.querySelectorAll('[data-account]').forEach(b=>b.addEventListener('click',()=>{state.activeAccount=b.dataset.account;save(LS.activeAccount,state.activeAccount);refreshAccountDisplays();calcSizer();renderDashboard();renderJournal();renderTradeAnalyst();renderAccountList();editAccount(state.activeAccount!=='all'?state.accounts.find(a=>a.id===state.activeAccount):null);})); el.querySelectorAll('[data-edit-account]').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();editAccount(state.accounts.find(a=>a.id===b.dataset.editAccount));})); }
 function openAccountModal(){ renderAccountList(); editAccount(state.activeAccount!=='all'?state.accounts.find(a=>a.id===state.activeAccount):null); document.getElementById('accountModal').classList.remove('hidden'); }
 function editAccount(a){ state.editingAccountId=a?.id||null; document.getElementById('accountFormTitle').textContent=a?'Edit account':'Add account'; document.getElementById('accountTitleInput').value=a?.title||''; document.getElementById('accountCategoryInput').value=a?.category||'live'; document.getElementById('accountBalanceInput').value=a?.startingBalance??''; document.getElementById('accountAdjustmentInput').value=0; document.getElementById('accountWithdrawalsInput').value=a?.withdrawals||0; document.getElementById('accountPayoutsInput').value=a?.payouts||0; document.getElementById('accountPayoutTotalInput').value=a?.payoutTotal||0; document.getElementById('accountBlownInput').checked=!!a?.blown; updateAccountCategoryFields(); updateAccountModalSummary(); }
 function updateAccountCategoryFields(){ const c=document.getElementById('accountCategoryInput').value; document.getElementById('accountWithdrawalsWrap').classList.toggle('hidden',c!=='live'); document.getElementById('accountPayoutsWrap').classList.toggle('hidden',c!=='funded'); document.getElementById('accountPayoutTotalWrap').classList.toggle('hidden',c!=='funded'); document.getElementById('accountBlownWrap').classList.toggle('hidden',c==='live'); }
@@ -702,7 +703,7 @@ function renderJournal(){
   const instFilter = document.getElementById('filterInstrument').value;
   const dateFilter = document.getElementById('filterDate').value;
 
-  let list = [...state.trades].sort((a,b)=> (b.date+b.time).localeCompare(a.date+a.time));
+  let list = [...scopedTrades()].sort((a,b)=> (b.date+b.time).localeCompare(a.date+a.time));
   list = list.filter(t=>{
     if (instFilter!=='all' && t.instrument!==instFilter) return false;
     if (dateFilter && t.date!==dateFilter) return false;
@@ -751,7 +752,7 @@ function renderJournal(){
 function populateInstrumentFilter(){
   const sel = document.getElementById('filterInstrument');
   const current = sel.value;
-  const syms = [...new Set(state.trades.map(t=>t.instrument))].sort();
+  const syms = [...new Set(scopedTrades().map(t=>t.instrument))].sort();
   sel.innerHTML = '<option value="all">All instruments</option>' + syms.map(s=>`<option value="${s}">${s}</option>`).join('');
   if (syms.includes(current)) sel.value = current;
 }
@@ -768,7 +769,7 @@ document.getElementById('exportCsvBtn').addEventListener('click', ()=>{
   if (!state.trades.length){ toast('No trades to export yet.'); return; }
   const cols = ['date','time','instrument','direction','entry','exit','size','risk','pnl','rMultiple','breakEven','setup','tags','newsEvent','preCatalyst','prePlan','preEmotion','postRules','postChange','postEmotion'];
   const rows = [cols.join(',')];
-  state.trades.forEach(t=>{
+  scopedTrades().forEach(t=>{
     const row = cols.map(c=>{
       let v = t[c];
       if (Array.isArray(v)) v = v.join('|');
@@ -809,7 +810,7 @@ function rerenderCharts(){
 function renderSetupChart(){
   const ctx = document.getElementById('setupChart');
   const bySetup = {};
-  state.trades.forEach(t=>{
+  scopedTrades().forEach(t=>{
     const key = t.setup || 'Untagged';
     if (!bySetup[key]) bySetup[key] = {wins:0, total:0};
     if (t.pnl!==null){ bySetup[key].total++; if (t.pnl>0) bySetup[key].wins++; }
@@ -868,14 +869,14 @@ function renderTodChartInto(ctx, prevInstance, trades, buckets, color){
 function renderTimeOfDayChart(){
   const ctx = document.getElementById('todChart');
   if (!ctx) return;
-  todChartInstance = renderTodChartInto(ctx, todChartInstance, state.trades, state.todJournal, '#5AA9E6');
+  todChartInstance = renderTodChartInto(ctx, todChartInstance, scopedTrades(), state.todJournal, '#5AA9E6');
 }
 function renderHeatmap(){
   const el = document.getElementById('heatmap');
   el.innerHTML = '';
   const days = 35;
   const byDate = {};
-  state.trades.forEach(t=>{ if (t.pnl!==null){ byDate[t.date] = (byDate[t.date]||0) + t.pnl; } });
+  scopedTrades().forEach(t=>{ if (t.pnl!==null){ byDate[t.date] = (byDate[t.date]||0) + t.pnl; } });
   const maxAbs = Math.max(1, ...Object.values(byDate).map(v=>Math.abs(v)));
   const today = new Date();
   const cells = [];
@@ -1227,7 +1228,7 @@ function renderWinRate(){
   if (sel) sel.value = period;
 
   // Break-even and no-trade days are excluded so they don't skew the rate.
-  const decided = state.trades.filter(t=>
+  const decided = scopedTrades().filter(t=>
     !t.breakEven && !t.noTrade && t.pnl!==null && t.pnl!==undefined &&
     (!start || new Date(t.date+'T00:00:00') >= start)
   );
@@ -1274,7 +1275,7 @@ function renderAvgRR(){
   // Ratio is built from the overall average win size vs average loss size,
   // with risk normalized to 1 → "1 : (avgWin / avgLoss)". Break-even and
   // no-trade days are excluded so they don't skew the averages.
-  const inWindow = state.trades.filter(t=>
+  const inWindow = scopedTrades().filter(t=>
     !t.breakEven && !t.noTrade &&
     t.pnl!==null && t.pnl!==undefined &&
     (!start || new Date(t.date+'T00:00:00') >= start)
@@ -1314,17 +1315,17 @@ function renderDashboard(){
   document.getElementById('greeting').textContent = hr<12? 'Good morning.' : hr<17? 'Good afternoon.' : 'Good evening.';
 
   const today = todayISO();
-  const todayTrades = state.trades.filter(t=>t.date===today);
+  const todayTrades = scopedTrades().filter(t=>t.date===today);
   const todayPnl = todayTrades.reduce((s,t)=> s + (t.pnl||0), 0);
   document.getElementById('statTodayPnl').textContent = fmtMoney(todayPnl);
   document.getElementById('statTodayPnl').className = 'num sensitive text-xl font-semibold ' + (todayPnl>0?'text-profit':todayPnl<0?'text-loss':'');
 
   renderWinRate();
-  document.getElementById('statTradeCount').textContent = state.trades.filter(t=>!t.noTrade).length;
+  document.getElementById('statTradeCount').textContent = scopedTrades().filter(t=>!t.noTrade).length;
 
   // recent trades
   const recentBox = document.getElementById('dashRecentTrades');
-  const last5 = [...state.trades].sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time)).slice(0,5);
+  const last5 = [...scopedTrades()].sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time)).slice(0,5);
   recentBox.innerHTML = last5.length ? last5.map(t=>{
     const pnlColor = t.pnl>0?'text-profit':t.pnl<0?'text-loss':'text-muted';
     return `<div class="flex items-center justify-between text-sm border-b border-line last:border-0 pb-2 last:pb-0">
@@ -1391,7 +1392,7 @@ function tcStep(dir){
 // Sum closed-trade P&L per ISO day.
 function tradesByDay(){
   const map = {};
-  state.trades.forEach(t=>{
+  scopedTrades().forEach(t=>{
     if (t.pnl===null || t.pnl===undefined) return;
     (map[t.date] = map[t.date] || { pnl:0, scored:0, count:0, beCount:0 });
     map[t.date].pnl += t.pnl; // true realized dollars (incl. break-even)
@@ -1489,7 +1490,7 @@ function renderTradeCalYear(){
   document.getElementById('tcLabel').textContent = String(year);
 
   const byMonth = Array.from({length:12}, ()=>({ pnl:0, scored:0, count:0, beCount:0 }));
-  state.trades.forEach(t=>{
+  scopedTrades().forEach(t=>{
     if (t.pnl===null || t.pnl===undefined) return;
     const d = new Date(t.date + 'T00:00:00');
     if (d.getFullYear()!==year) return;
@@ -1537,7 +1538,7 @@ function renderTradeCalYear(){
 }
 function renderEquityChart(){
   const ctx = document.getElementById('dashEquityChart');
-  const closed = [...state.trades].filter(t=>t.pnl!==null).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+  const closed = [...scopedTrades()].filter(t=>t.pnl!==null).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
   let cum = 0;
   const labels = closed.map(t=>t.date);
   const data = closed.map(t=>{ cum += t.pnl; return Math.round(cum*100)/100; });
@@ -1890,9 +1891,9 @@ function renderAnalystProfile(){ const p=state.analystProfile||{}; const map={an
 function analystTradeSummary(t){ return (t.date||'No date')+' · '+(t.instrument||'Trade')+' · '+(t.direction||'')+' · '+(t.pnl==null?'Open':fmtMoney(t.pnl)); }
 function renderAnalystTrades(){
   const list=document.getElementById('analystTradeList'), selected=document.getElementById('analystSelectedTrades'); if(!list||!selected)return;
-  const sortedTrades=state.trades.slice().sort((a,b)=>{const dateA=Date.parse(`${a.date||''}T00:00:00`)||0; const dateB=Date.parse(`${b.date||''}T00:00:00`)||0; return dateB-dateA;});
+  const sortedTrades=scopedTrades().slice().sort((a,b)=>{const dateA=Date.parse(`${a.date||''}T00:00:00`)||0; const dateB=Date.parse(`${b.date||''}T00:00:00`)||0; return dateB-dateA;});
   list.innerHTML=sortedTrades.length ? sortedTrades.map(t=>{const checked=state.analystSelected.includes(t.id); return `<label class="flex items-center gap-3 border border-line rounded-lg p-3 cursor-pointer hover:border-gold/40"><input type="checkbox" class="analyst-trade-check accent-gold" data-id="${analystEscape(t.id)}" ${checked?'checked':''}><span class="min-w-0"><span class="block text-sm truncate">${analystEscape(analystTradeSummary(t))}</span><span class="block text-xs text-faint truncate">${analystEscape(t.notes||'No journal notes')}${((t.screenshots||[]).length?' · '+t.screenshots.length+' screenshot(s)':'')}</span></span></label>`;}).join('') : '<div class="text-sm text-muted py-5">No journaled trades yet. Add one in Journal first.</div>';
-  const chosen=state.trades.filter(t=>state.analystSelected.includes(t.id));
+  const chosen=scopedTrades().filter(t=>state.analystSelected.includes(t.id));
   document.getElementById('analystTradeCount').textContent=chosen.length+' selected';
   document.getElementById('analystContextStatus').textContent=chosen.length?chosen.length+' trade'+(chosen.length===1?'':'s')+' ready':'No trades selected';
   selected.innerHTML=chosen.length ? chosen.map(t=>`<div class="border border-line rounded-lg p-3"><div class="text-sm font-medium">${analystEscape(analystTradeSummary(t))}</div><div class="text-xs text-muted mt-1">${analystEscape(t.notes||'No journal notes')}</div>${(t.screenshots||[]).slice(0,3).map((s,i)=>`<img src="${analystEscape(s)}" alt="Screenshot ${i+1}" class="mt-2 max-h-36 rounded border border-line object-contain">`).join('')}</div>`).join('') : '<div class="text-xs text-faint">Selected journal trade notes and screenshots will appear here.</div>';
@@ -1909,7 +1910,7 @@ function renderAnalystGrades(text){
 }
 async function analyzeTrade(){
   const error=document.getElementById('analystError'), btn=document.getElementById('analystAnalyzeBtn'), explanation=document.getElementById('analystExplanation'); error.textContent=''; const text=explanation.value.trim(); if(!state.analystProfile || !Object.values(state.analystProfile).some(Boolean)){error.textContent='Save your strategy profile first.';return;} if(!text){error.textContent='Explain the trade before analyzing it.';return;}
-  const trades=state.trades.filter(t=>state.analystSelected.includes(t.id)).map(t=>({date:t.date,instrument:t.instrument,direction:t.direction,pnl:t.pnl,outcome:t.outcome,notes:t.notes,screenshots:t.screenshots||[] })); appendAnalystMessage('user',text); explanation.value=''; btn.disabled=true; btn.textContent='Analyzing…'; const assistant=appendAnalystMessage('assistant','');
+  const trades=scopedTrades().filter(t=>state.analystSelected.includes(t.id)).map(t=>({date:t.date,instrument:t.instrument,direction:t.direction,pnl:t.pnl,outcome:t.outcome,notes:t.notes,screenshots:t.screenshots||[] })); appendAnalystMessage('user',text); explanation.value=''; btn.disabled=true; btn.textContent='Analyzing…'; const assistant=appendAnalystMessage('assistant','');
   try{ const res=await fetch('/api/trade-analyst',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({profile:analystProfileText(),trades,explanation:text})}); if(!res.ok) throw new Error((await res.json()).error||'Analysis unavailable'); const reader=res.body.getReader(), decoder=new TextDecoder(); let answer=''; while(true){const part=await reader.read(); if(part.done)break; answer+=decoder.decode(part.value,{stream:true}); assistant.textContent=answer; renderAnalystGrades(answer); } state.analystHistory.push({role:'user',text}); state.analystHistory.push({role:'assistant',text:answer}); save(LS.analystHistory,state.analystHistory); }catch(e){assistant.textContent=''; error.textContent=e.message||'Analysis unavailable.';} finally{btn.disabled=false;btn.textContent='Analyze trade';}
 }
 function renderAnalystHistory(){ const wrap=document.getElementById('analystMessages'); if(!wrap||!state.analystHistory.length)return; wrap.innerHTML=''; state.analystHistory.slice(-10).forEach(m=>appendAnalystMessage(m.role,m.text)); const latest=[...state.analystHistory].reverse().find(m=>m.role==='assistant'); if(latest) renderAnalystGrades(latest.text); }
