@@ -127,6 +127,23 @@
     .toggle-seg { display:flex; border:1px solid rgb(var(--c-line)); border-radius:.55rem; overflow:hidden; }
     .toggle-seg button { padding:.4rem .9rem; font-size:.8rem; color:rgb(var(--c-muted)); }
     .toggle-seg button.on { background:rgb(var(--c-panel2)); color:rgb(var(--c-gold)); }
+
+    /* Responsive shell: prevent control clipping on compact laptop screens. */
+    html, body { overflow-x:hidden; }
+    @media (min-width:1024px) and (max-width:1279px) {
+      aside { width:14rem !important; padding-left:1rem; padding-right:1rem; }
+      main { padding-left:1.25rem !important; padding-right:1.25rem !important; }
+      aside .grid.grid-cols-2 { grid-template-columns:1fr; }
+      aside .grid.grid-cols-2 button { width:100%; }
+      .view { min-width:0; }
+      .view > * { min-width:0; max-width:100%; }
+      .overflow-x-auto { max-width:100%; }
+    }
+    @media (max-width:639px) {
+      main { padding-left:.75rem !important; padding-right:.75rem !important; }
+      #mobileAccountBtn { max-width:8rem; overflow:hidden; text-overflow:ellipsis; }
+      #saveDataMobileBtn, #loadDataMobileBtn { white-space:nowrap; }
+    }
   </style>
 </head>
 <body class="min-h-screen">
@@ -212,7 +229,7 @@
     </aside>
 
     <!-- MAIN -->
-    <main class="flex-1 min-w-0 px-4 sm:px-6 lg:px-10 py-6 pb-24 lg:pb-10 max-w-6xl mx-auto w-full">
+    <main class="flex-1 min-w-0 px-4 sm:px-6 lg:px-10 py-6 pb-24 lg:pb-10 max-w-6xl mx-auto w-full overflow-hidden">
 
       <!-- ============ DASHBOARD ============ -->
       <section id="view-dashboard" class="view active">
@@ -903,7 +920,7 @@
   <script>
   (function(){
     var s = document.createElement('script');
-    s.src = '/app/script?v=42';
+    s.src = '/app/script?v=43';
     document.body.appendChild(s);
   })();
   </script>
