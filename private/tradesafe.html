@@ -128,13 +128,24 @@
     .toggle-seg button { padding:.4rem .9rem; font-size:.8rem; color:rgb(var(--c-muted)); }
     .toggle-seg button.on { background:rgb(var(--c-panel2)); color:rgb(var(--c-gold)); }
 
-    /* Cyber Command Center preview mode. */
-    .interface-futuristic { --c-bg:7 13 22; --c-panel:12 23 36; --c-panel2:16 34 50; --c-line:30 76 100; --c-gold:51 224 218; --c-goldsoft:17 91 105; --c-muted:142 177 194; --c-faint:88 123 141; --c-profit:73 220 157; --c-loss:255 105 122; --c-fg:228 247 251; }
-    .interface-futuristic body, .interface-futuristic html { background:rgb(var(--c-bg)); }
-    .interface-futuristic body { background-image:linear-gradient(rgb(var(--c-line) / .08) 1px,transparent 1px),linear-gradient(90deg,rgb(var(--c-line) / .08) 1px,transparent 1px); background-size:32px 32px; }
-    .interface-futuristic .bg-panel, .interface-futuristic .bg-panel2 { box-shadow:0 0 0 1px rgb(var(--c-gold) / .06), 0 12px 35px rgb(0 0 0 / .25); }
-    .interface-futuristic .border-line { border-color:rgb(var(--c-line) / .75); }
-    .interface-futuristic .btn-gold { background:rgb(var(--c-gold)); color:#061318; box-shadow:0 0 18px rgb(var(--c-gold) / .18); }
+    /* Futuristic Glass Dashboard preview mode. */
+    .interface-futuristic { --c-bg:18 23 38; --c-panel:255 255 255; --c-panel2:255 255 255; --c-line:255 255 255; --c-gold:91 92 230; --c-goldsoft:133 135 245; --c-muted:91 101 126; --c-faint:126 135 158; --c-profit:24 157 112; --c-loss:222 76 105; --c-fg:29 38 61; }
+    .interface-futuristic body { background:linear-gradient(135deg,#edf1ff 0%,#f8f9ff 48%,#e8f5f5 100%); background-attachment:fixed; }
+    .interface-futuristic body::before { content:''; position:fixed; inset:-20%; pointer-events:none; background:radial-gradient(circle at 12% 8%,rgba(142,120,255,.22),transparent 30%),radial-gradient(circle at 88% 18%,rgba(77,207,203,.2),transparent 28%),radial-gradient(circle at 60% 100%,rgba(255,190,116,.14),transparent 32%); filter:blur(12px); z-index:-1; }
+    .interface-futuristic aside, .interface-futuristic header { background:rgba(255,255,255,.48) !important; backdrop-filter:blur(24px); border-color:rgba(255,255,255,.7) !important; box-shadow:10px 0 40px rgba(93,103,151,.1); }
+    .interface-futuristic .bg-panel, .interface-futuristic .bg-panel2 { background:rgba(255,255,255,.58) !important; backdrop-filter:blur(22px); border-color:rgba(255,255,255,.82) !important; box-shadow:0 18px 50px rgba(77,87,137,.1), inset 0 1px 0 rgba(255,255,255,.8); }
+    .interface-futuristic .border-line { border-color:rgba(119,130,177,.2) !important; }
+    .interface-futuristic .nav-item { border:1px solid transparent; }
+    .interface-futuristic .nav-item.active { background:rgba(255,255,255,.76); color:rgb(var(--c-gold)); border-color:rgba(255,255,255,.9); box-shadow:0 8px 24px rgba(91,92,230,.12); }
+    .interface-futuristic .btn-gold { background:linear-gradient(135deg,#6d70ee,#8a75ea); color:#fff; box-shadow:0 10px 24px rgba(91,92,230,.25); }
+    .interface-futuristic .btn-ghost { background:rgba(255,255,255,.42); border-color:rgba(119,130,177,.25); }
+    .interface-futuristic input, .interface-futuristic select, .interface-futuristic textarea { background:rgba(255,255,255,.48); border-color:rgba(119,130,177,.22); }
+    .interface-futuristic .font-display { letter-spacing:-.035em; }
+    .interface-futuristic #view-dashboard > .grid:first-of-type > div { border-radius:1.25rem; min-height:126px; display:flex; flex-direction:column; justify-content:center; }
+    .interface-futuristic #view-dashboard > .grid:first-of-type > div:first-child { background:linear-gradient(135deg,rgba(109,112,238,.92),rgba(140,113,235,.88)) !important; color:#fff; }
+    .interface-futuristic #view-dashboard > .grid:first-of-type > div:first-child .text-faint, .interface-futuristic #view-dashboard > .grid:first-of-type > div:first-child #statTodayPnl { color:#fff !important; }
+    .interface-futuristic #view-dashboard .rounded-xl { border-radius:1.25rem; }
+    .interface-futuristic #openAccountBtn { background:rgba(255,255,255,.62); }
 
     /* Responsive shell: prevent control clipping on compact laptop screens. */
     html, body { overflow-x:hidden; }
@@ -930,7 +941,7 @@
   <script>
   (function(){
     var s = document.createElement('script');
-    s.src = '/app/script?v=45';
+    s.src = '/app/script?v=46';
     document.body.appendChild(s);
   })();
   </script>
