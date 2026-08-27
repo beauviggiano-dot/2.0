@@ -190,6 +190,15 @@
     .theme-light.interface-futuristic .tc-dashboard-day .text-loss { color:rgb(var(--c-loss)) !important; }
     .theme-light.interface-futuristic .tc-dashboard-day .text-gold { color:rgb(var(--c-gold)) !important; }
 
+    /* Light-mode selected calendar controls: bright glass instead of dark fills. */
+    .theme-light.interface-futuristic #view-calendar .chip.on,
+    .theme-light.interface-futuristic #view-calendar .cat-filter.on,
+    .theme-light.interface-futuristic #view-calendar .toggle-seg button.on { background:rgba(255,255,255,.9) !important; color:rgb(24 157 112) !important; border-color:rgba(34,180,101,.42) !important; box-shadow:0 4px 14px rgba(34,180,101,.08); }
+    .theme-light.interface-futuristic #view-calendar .toggle-seg { background:rgba(255,255,255,.58); border-color:rgba(86,134,117,.28); }
+    .theme-light.interface-futuristic #view-calendar .chip.on:hover,
+    .theme-light.interface-futuristic #view-calendar .cat-filter.on:hover,
+    .theme-light.interface-futuristic #view-calendar .toggle-seg button.on:hover { background:rgba(255,255,255,.98) !important; }
+
     /* Economic Calendar monthly view: bright glass cells in light mode. */
     .theme-light.interface-futuristic #calendarMonth .economic-month-grid { background:rgba(255,255,255,.5); }
     .theme-light.interface-futuristic #calendarMonth .economic-month-weekday { background:rgba(255,255,255,.96) !important; color:#111827 !important; }
@@ -1008,7 +1017,7 @@
   <script>
   (function(){
     var s = document.createElement('script');
-    s.src = '/app/script?v=59';
+    s.src = '/app/script?v=60';
     document.body.appendChild(s);
   })();
   </script>
