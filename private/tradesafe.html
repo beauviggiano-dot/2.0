@@ -128,6 +128,14 @@
     .toggle-seg button { padding:.4rem .9rem; font-size:.8rem; color:rgb(var(--c-muted)); }
     .toggle-seg button.on { background:rgb(var(--c-panel2)); color:rgb(var(--c-gold)); }
 
+    /* Cyber Command Center preview mode. */
+    .interface-futuristic { --c-bg:7 13 22; --c-panel:12 23 36; --c-panel2:16 34 50; --c-line:30 76 100; --c-gold:51 224 218; --c-goldsoft:17 91 105; --c-muted:142 177 194; --c-faint:88 123 141; --c-profit:73 220 157; --c-loss:255 105 122; --c-fg:228 247 251; }
+    .interface-futuristic body, .interface-futuristic html { background:rgb(var(--c-bg)); }
+    .interface-futuristic body { background-image:linear-gradient(rgb(var(--c-line) / .08) 1px,transparent 1px),linear-gradient(90deg,rgb(var(--c-line) / .08) 1px,transparent 1px); background-size:32px 32px; }
+    .interface-futuristic .bg-panel, .interface-futuristic .bg-panel2 { box-shadow:0 0 0 1px rgb(var(--c-gold) / .06), 0 12px 35px rgb(0 0 0 / .25); }
+    .interface-futuristic .border-line { border-color:rgb(var(--c-line) / .75); }
+    .interface-futuristic .btn-gold { background:rgb(var(--c-gold)); color:#061318; box-shadow:0 0 18px rgb(var(--c-gold) / .18); }
+
     /* Responsive shell: prevent control clipping on compact laptop screens. */
     html, body { overflow-x:hidden; }
     @media (min-width:1024px) and (max-width:1279px) {
@@ -162,6 +170,7 @@
       <span class="font-display font-bold tracking-wide">TradeSafe</span>
     </div>
     <div class="flex items-center gap-2">
+      <button id="interfaceModeMobileToggle" class="btn-ghost text-[11px] px-2 py-1.5 shrink-0" type="button" title="Switch to Futuristic preview">◆</button>
       <div class="flex items-center gap-1">
         <button id="saveDataMobileBtn" class="btn-ghost text-[11px] px-2 py-1.5" type="button">Save</button>
         <button id="loadDataMobileBtn" class="btn-ghost text-[11px] px-2 py-1.5" type="button">Upload</button>
@@ -215,6 +224,7 @@
           <span id="syncStatusText">Saved on this device</span>
         </div>
         <button id="themeToggle" class="theme-toggle w-full flex items-center justify-center gap-2 text-sm text-muted border border-line rounded-xl px-4 py-2.5 hover:border-gold/40 hover:text-gold transition"></button>
+        <div class="flex items-center justify-between gap-2 px-1"><span class="text-[10px] uppercase tracking-widest text-faint">Interface</span><button id="interfaceModeToggle" type="button" class="btn-ghost text-[11px] px-2.5 py-1.5">Futuristic preview</button></div>
         <button id="openAccountBtn" class="w-full text-left bg-panel2 border border-line rounded-xl px-4 py-3 hover:border-gold/40 transition">
           <div class="text-[10px] uppercase tracking-wide text-faint">Account Balance</div>
           <div id="sidebarAccount" class="num sensitive text-lg font-semibold text-gold">$10,000.00</div>
@@ -920,7 +930,7 @@
   <script>
   (function(){
     var s = document.createElement('script');
-    s.src = '/app/script?v=44';
+    s.src = '/app/script?v=45';
     document.body.appendChild(s);
   })();
   </script>
