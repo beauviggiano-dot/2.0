@@ -129,11 +129,11 @@
     .toggle-seg button.on { background:rgb(var(--c-panel2)); color:rgb(var(--c-gold)); }
 
     /* Futuristic Glass Dashboard preview mode. */
-    .interface-futuristic { --c-bg:18 23 38; --c-panel:255 255 255; --c-panel2:255 255 255; --c-line:255 255 255; --c-gold:91 92 230; --c-goldsoft:133 135 245; --c-muted:91 101 126; --c-faint:126 135 158; --c-profit:24 157 112; --c-loss:222 76 105; --c-fg:29 38 61; }
-    .interface-futuristic body { background:linear-gradient(135deg,#edf1ff 0%,#f8f9ff 48%,#e8f5f5 100%); background-attachment:fixed; }
-    .interface-futuristic body::before { content:''; position:fixed; inset:-20%; pointer-events:none; background:radial-gradient(circle at 12% 8%,rgba(142,120,255,.22),transparent 30%),radial-gradient(circle at 88% 18%,rgba(77,207,203,.2),transparent 28%),radial-gradient(circle at 60% 100%,rgba(255,190,116,.14),transparent 32%); filter:blur(12px); z-index:-1; }
-    .interface-futuristic aside, .interface-futuristic header { background:rgba(255,255,255,.48) !important; backdrop-filter:blur(24px); border-color:rgba(255,255,255,.7) !important; box-shadow:10px 0 40px rgba(93,103,151,.1); }
-    .interface-futuristic .bg-panel, .interface-futuristic .bg-panel2 { background:rgba(255,255,255,.58) !important; backdrop-filter:blur(22px); border-color:rgba(255,255,255,.82) !important; box-shadow:0 18px 50px rgba(77,87,137,.1), inset 0 1px 0 rgba(255,255,255,.8); }
+    .interface-futuristic { --c-bg:15 18 24; --c-panel:22 28 37; --c-panel2:27 34 45; --c-line:57 76 104; --c-gold:34 239 116; --c-goldsoft:33 92 77; --c-muted:157 169 185; --c-faint:103 119 140; --c-profit:34 239 116; --c-loss:255 101 117; --c-fg:235 241 247; }
+    .interface-futuristic body { background:linear-gradient(135deg,#0f1218 0%,#151b25 52%,#101b1b 100%); background-attachment:fixed; }
+    .interface-futuristic body::before { content:''; position:fixed; inset:-20%; pointer-events:none; background:radial-gradient(circle at 12% 8%,rgba(25,77,147,.32),transparent 30%),radial-gradient(circle at 88% 18%,rgba(34,239,116,.12),transparent 28%),radial-gradient(circle at 60% 100%,rgba(24,62,55,.2),transparent 32%); filter:blur(12px); z-index:-1; }
+    .interface-futuristic aside, .interface-futuristic header { background:rgba(17,24,33,.72) !important; backdrop-filter:blur(24px); border-color:rgba(55,88,116,.58) !important; box-shadow:10px 0 40px rgba(0,0,0,.24); }
+    .interface-futuristic .bg-panel, .interface-futuristic .bg-panel2 { background:rgba(25,34,45,.68) !important; backdrop-filter:blur(22px); border-color:rgba(72,101,126,.55) !important; box-shadow:0 18px 50px rgba(0,0,0,.2), inset 0 1px 0 rgba(255,255,255,.06); }
     .interface-futuristic .border-line { border-color:rgba(119,130,177,.2) !important; }
     .interface-futuristic .nav-item { border:1px solid transparent; }
     .interface-futuristic .nav-item.active { background:rgba(255,255,255,.76); color:rgb(var(--c-gold)); border-color:rgba(255,255,255,.9); box-shadow:0 8px 24px rgba(91,92,230,.12); }
@@ -142,7 +142,7 @@
     .interface-futuristic input, .interface-futuristic select, .interface-futuristic textarea { background:rgba(255,255,255,.48); border-color:rgba(119,130,177,.22); }
     .interface-futuristic .font-display { letter-spacing:-.035em; }
     .interface-futuristic #view-dashboard > .grid:first-of-type > div { border-radius:1.25rem; min-height:126px; display:flex; flex-direction:column; justify-content:center; }
-    .interface-futuristic #view-dashboard > .grid:first-of-type > div:first-child { background:linear-gradient(135deg,rgba(109,112,238,.92),rgba(140,113,235,.88)) !important; color:#fff; }
+    .interface-futuristic #view-dashboard > .grid:first-of-type > div:first-child { background:linear-gradient(135deg,rgba(23,58,120,.88),rgba(34,239,116,.76)) !important; color:#fff; }
     .interface-futuristic #view-dashboard > .grid:first-of-type > div:first-child .text-faint, .interface-futuristic #view-dashboard > .grid:first-of-type > div:first-child #statTodayPnl { color:#fff !important; }
     .interface-futuristic #view-dashboard .rounded-xl { border-radius:1.25rem; }
     .interface-futuristic #openAccountBtn { background:rgba(255,255,255,.62); }
@@ -177,7 +177,7 @@
   <!-- MOBILE TOP BAR -->
   <header class="lg:hidden sticky top-0 z-30 flex items-center justify-between px-4 py-3 bg-panel border-b border-line">
     <div class="flex items-center gap-2">
-      <span class="w-2 h-6 rounded-sm bg-gold"></span>
+      <img src="/tradesafe-logo.jpeg" alt="TradeSafe logo" class="h-8 w-8 rounded-lg object-cover" />
       <span class="font-display font-bold tracking-wide">TradeSafe</span>
     </div>
     <div class="flex items-center gap-2">
@@ -195,7 +195,7 @@
     <!-- SIDEBAR -->
     <aside class="hidden lg:flex flex-col w-64 shrink-0 h-screen max-h-screen min-h-0 sticky top-0 overflow-y-auto overscroll-contain bg-panel border-r border-line px-4 py-6">
       <div class="flex items-center gap-2 px-2 mb-8">
-        <span class="w-2.5 h-8 rounded-sm bg-gold"></span>
+        <img src="/tradesafe-logo.jpeg" alt="TradeSafe logo" class="h-10 w-10 rounded-xl object-cover" />
         <div>
           <div class="font-display font-bold text-lg tracking-wide leading-none">TradeSafe</div>
           <div class="text-[10px] uppercase tracking-widest text-faint mt-1">Trading Workflow</div>
@@ -941,7 +941,7 @@
   <script>
   (function(){
     var s = document.createElement('script');
-    s.src = '/app/script?v=46';
+    s.src = '/app/script?v=47';
     document.body.appendChild(s);
   })();
   </script>
