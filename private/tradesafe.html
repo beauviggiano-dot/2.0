@@ -171,6 +171,32 @@
     .theme-light.interface-futuristic .theme-toggle:hover { background:rgba(255,255,255,.78); border-color:rgba(34,180,101,.4); color:rgb(24 157 112); }
     .theme-light.interface-futuristic input, .theme-light.interface-futuristic select, .theme-light.interface-futuristic textarea { background:rgba(255,255,255,.62); border-color:rgba(86,134,117,.25); color:rgb(var(--c-fg)); }
     .theme-light.interface-futuristic #openAccountBtn { background:rgba(255,255,255,.72); }
+    /* Calendar readability in futuristic light mode. */
+    .theme-light.interface-futuristic .cal-month-grid { background:rgba(255,255,255,.46); border-radius:.75rem; }
+    .theme-light.interface-futuristic .cal-cell { background:rgba(255,255,255,.88); border-color:rgba(65,91,111,.42); color:#111827; }
+    .theme-light.interface-futuristic .cal-cell.dim { opacity:.72; background:rgba(255,255,255,.68); }
+    .theme-light.interface-futuristic .cal-cell.today { background:rgba(240,255,247,.96); border-color:rgba(34,180,101,.68); }
+    .theme-light.interface-futuristic .cal-cell .text-muted, .theme-light.interface-futuristic .cal-cell .text-faint, .theme-light.interface-futuristic .cal-cell [class*="text-xs"] { color:#111827 !important; }
+    .theme-light.interface-futuristic .cal-cell .text-profit { color:rgb(var(--c-profit)) !important; }
+    .theme-light.interface-futuristic .cal-cell .text-loss { color:rgb(var(--c-loss)) !important; }
+    .theme-light.interface-futuristic .cal-cell .text-gold { color:rgb(var(--c-gold)) !important; }
+    /* Dashboard Trade Calendar grid: brighter cells and black neutral labels in light mode. */
+    .theme-light.interface-futuristic .tc-dashboard-grid { background:rgba(255,255,255,.46); }
+    .theme-light.interface-futuristic .tc-dashboard-weekday { background:rgba(255,255,255,.94) !important; color:#111827 !important; }
+    .theme-light.interface-futuristic .tc-dashboard-day { background:rgba(255,255,255,.92) !important; color:#111827 !important; border-color:rgba(65,91,111,.42) !important; }
+    .theme-light.interface-futuristic .tc-dashboard-day.opacity-40 { background:rgba(255,255,255,.72) !important; opacity:.78; }
+    .theme-light.interface-futuristic .tc-dashboard-day .text-muted, .theme-light.interface-futuristic .tc-dashboard-day .text-faint { color:#111827 !important; }
+    .theme-light.interface-futuristic .tc-dashboard-day .text-profit { color:rgb(var(--c-profit)) !important; }
+    .theme-light.interface-futuristic .tc-dashboard-day .text-loss { color:rgb(var(--c-loss)) !important; }
+    .theme-light.interface-futuristic .tc-dashboard-day .text-gold { color:rgb(var(--c-gold)) !important; }
+
+    /* Trade Calendar grid: brighter cells and black neutral labels in light mode. */
+    .theme-light.interface-futuristic #tcBody > div > div { background:rgba(255,255,255,.92) !important; color:#111827 !important; border-color:rgba(65,91,111,.42) !important; }
+    .theme-light.interface-futuristic #tcBody > div > div.opacity-40 { background:rgba(255,255,255,.7) !important; opacity:.78; }
+    .theme-light.interface-futuristic #tcBody > div > div .text-muted, .theme-light.interface-futuristic #tcBody > div > div .text-faint { color:#111827 !important; }
+    .theme-light.interface-futuristic #tcBody > div > div .text-profit { color:rgb(var(--c-profit)) !important; }
+    .theme-light.interface-futuristic #tcBody > div > div .text-loss { color:rgb(var(--c-loss)) !important; }
+    .theme-light.interface-futuristic #tcBody > div > div .text-gold { color:rgb(var(--c-gold)) !important; }
 
     /* Responsive shell: prevent control clipping on compact laptop screens. */
     html, body { overflow-x:hidden; }
@@ -964,7 +990,7 @@
   <script>
   (function(){
     var s = document.createElement('script');
-    s.src = '/app/script?v=54';
+    s.src = '/app/script?v=57';
     document.body.appendChild(s);
   })();
   </script>
