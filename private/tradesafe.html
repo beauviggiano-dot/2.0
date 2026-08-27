@@ -139,14 +139,19 @@
     .interface-futuristic .nav-item.active { background:rgba(255,255,255,.08); color:rgb(var(--c-gold)); border-color:rgba(34,239,116,.32); box-shadow:0 8px 24px rgba(34,239,116,.12); }
     .interface-futuristic .text-gold, .interface-futuristic .text-gold\/80, .interface-futuristic .text-gold\/70 { color:rgb(var(--c-gold)) !important; }
     .interface-futuristic .btn-gold { background:linear-gradient(135deg,#1b8f55,#22ef74); color:#07140d; box-shadow:0 10px 24px rgba(34,239,116,.25); }
-    .interface-futuristic .btn-ghost { background:rgba(255,255,255,.42); border-color:rgba(119,130,177,.25); }
-    .interface-futuristic input, .interface-futuristic select, .interface-futuristic textarea { background:rgba(255,255,255,.48); border-color:rgba(119,130,177,.22); }
+    .interface-futuristic .btn-ghost { background:rgba(25,34,45,.58); border-color:rgba(72,101,126,.55); color:rgb(var(--c-fg)); }
+    .interface-futuristic .btn-ghost:hover, .interface-futuristic .theme-toggle:hover { background:rgba(34,55,65,.72); border-color:rgba(34,239,116,.4); color:rgb(var(--c-gold)); }
+    .interface-futuristic .theme-toggle { background:rgba(25,34,45,.58); border-color:rgba(72,101,126,.55); }
+    .interface-futuristic input, .interface-futuristic select, .interface-futuristic textarea { background:rgba(25,34,45,.58); border-color:rgba(72,101,126,.55); color:rgb(var(--c-fg)); }
+    .interface-futuristic .toggle-seg { background:rgba(25,34,45,.42); border-color:rgba(72,101,126,.55); }
+    .interface-futuristic .toggle-seg button.on { background:rgba(34,239,116,.14); color:rgb(var(--c-gold)); }
     .interface-futuristic .font-display { letter-spacing:-.035em; }
     .interface-futuristic #view-dashboard > .grid:first-of-type > div { border-radius:1.25rem; min-height:126px; display:flex; flex-direction:column; justify-content:center; }
     .interface-futuristic #view-dashboard > .grid:first-of-type > div:first-child { background:linear-gradient(135deg,rgba(23,58,120,.88),rgba(34,239,116,.76)) !important; color:#fff; }
     .interface-futuristic #view-dashboard > .grid:first-of-type > div:first-child .text-faint, .interface-futuristic #view-dashboard > .grid:first-of-type > div:first-child #statTodayPnl { color:#fff !important; }
     .interface-futuristic #view-dashboard .rounded-xl { border-radius:1.25rem; }
     .interface-futuristic #openAccountBtn { background:rgba(25,34,45,.72); }
+    .interface-futuristic #mobileAccountBtn { background:rgba(25,34,45,.58); color:rgb(var(--c-gold)); border-color:rgba(34,239,116,.35); }
     /* Futuristic light mode: keep the glass language, invert the atmosphere. */
     .theme-light.interface-futuristic { --c-fg:29 38 61; --c-muted:74 88 112; --c-faint:105 120 143; --c-line:86 112 132; }
     .theme-light.interface-futuristic body { background:linear-gradient(135deg,#e9f4ef 0%,#f5faf8 48%,#e6eff8 100%); color:rgb(29 38 61); }
@@ -953,7 +958,7 @@
   <script>
   (function(){
     var s = document.createElement('script');
-    s.src = '/app/script?v=51';
+    s.src = '/app/script?v=52';
     document.body.appendChild(s);
   })();
   </script>
