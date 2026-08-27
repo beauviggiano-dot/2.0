@@ -190,6 +190,24 @@
     .theme-light.interface-futuristic .tc-dashboard-day .text-loss { color:rgb(var(--c-loss)) !important; }
     .theme-light.interface-futuristic .tc-dashboard-day .text-gold { color:rgb(var(--c-gold)) !important; }
 
+    /* Economic Calendar monthly view: bright glass cells in light mode. */
+    .theme-light.interface-futuristic #calendarMonth .economic-month-grid { background:rgba(255,255,255,.5); }
+    .theme-light.interface-futuristic #calendarMonth .economic-month-weekday { background:rgba(255,255,255,.96) !important; color:#111827 !important; }
+    .theme-light.interface-futuristic #calendarMonth .economic-month-grid > div:not(.economic-month-weekday) { background:rgba(255,255,255,.94) !important; color:#111827 !important; border-color:rgba(65,91,111,.42) !important; }
+    .theme-light.interface-futuristic #calendarMonth .economic-month-grid > div.opacity-40 { background:rgba(255,255,255,.74) !important; opacity:.78; }
+    .theme-light.interface-futuristic #calendarMonth .economic-month-grid .text-muted, .theme-light.interface-futuristic #calendarMonth .economic-month-grid .text-faint { color:#111827 !important; }
+    .theme-light.interface-futuristic #calendarMonth .economic-month-grid .text-gold { color:rgb(var(--c-gold)) !important; }
+
+    /* Economic Calendar monthly view: bright glass cells in light mode. */
+    .theme-light.interface-futuristic #calendarMonth .cal-month-grid { background:rgba(255,255,255,.5); }
+    .theme-light.interface-futuristic #calendarMonth .cal-cell { background:rgba(255,255,255,.94) !important; color:#111827 !important; border-color:rgba(65,91,111,.42) !important; }
+    .theme-light.interface-futuristic #calendarMonth .cal-cell.dim { background:rgba(255,255,255,.74) !important; opacity:.78; }
+    .theme-light.interface-futuristic #calendarMonth .cal-cell.today { background:rgba(240,255,247,.98) !important; border-color:rgba(34,180,101,.68) !important; }
+    .theme-light.interface-futuristic #calendarMonth .cal-cell .text-muted, .theme-light.interface-futuristic #calendarMonth .cal-cell .text-faint { color:#111827 !important; }
+    .theme-light.interface-futuristic #calendarMonth .cal-cell .text-profit { color:rgb(var(--c-profit)) !important; }
+    .theme-light.interface-futuristic #calendarMonth .cal-cell .text-loss { color:rgb(var(--c-loss)) !important; }
+    .theme-light.interface-futuristic #calendarMonth .cal-cell .text-gold { color:rgb(var(--c-gold)) !important; }
+
     /* Trade Calendar grid: brighter cells and black neutral labels in light mode. */
     .theme-light.interface-futuristic #tcBody > div > div { background:rgba(255,255,255,.92) !important; color:#111827 !important; border-color:rgba(65,91,111,.42) !important; }
     .theme-light.interface-futuristic #tcBody > div > div.opacity-40 { background:rgba(255,255,255,.7) !important; opacity:.78; }
@@ -990,7 +1008,7 @@
   <script>
   (function(){
     var s = document.createElement('script');
-    s.src = '/app/script?v=57';
+    s.src = '/app/script?v=59';
     document.body.appendChild(s);
   })();
   </script>
