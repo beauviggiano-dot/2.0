@@ -80,6 +80,7 @@ const LS = {
   rrPeriod: 'ts_rr_period',
   winPeriod: 'ts_win_period',
   keypad: 'ts_keypad',
+  interfaceMode: 'ts_interface_mode',
   analystProfile: 'ts_analyst_profile',
   analystHistory: 'ts_analyst_history',
   analystSelected: 'ts_analyst_selected',
@@ -117,6 +118,7 @@ let state = {
   rrPeriod: load(LS.rrPeriod, 'month'), // avg R:R window: week, month, year, all
   winPeriod: load(LS.winPeriod, '30d'), // win rate window: 30d, week, month, year, all
   keypad: load(LS.keypad, false), // show the on-screen keypad in the risk sizer
+  interfaceMode: load(LS.interfaceMode, 'classic'),
   analystProfile: load(LS.analystProfile, {}),
   analystHistory: load(LS.analystHistory, []),
   analystSelected: load(LS.analystSelected, []),
@@ -163,6 +165,13 @@ function applyTheme(){
   // Charts read CSS colors, so refresh them on theme change.
   if (typeof rerenderCharts === 'function') rerenderCharts();
 }
+function applyInterfaceMode(){
+  const futuristic=state.interfaceMode==='futuristic';
+  document.documentElement.classList.toggle('interface-futuristic',futuristic);
+  const toggle=document.getElementById('interfaceModeToggle');
+  if(toggle) toggle.textContent=futuristic?'Classic mode':'Futuristic preview'; const mobileToggle=document.getElementById('interfaceModeMobileToggle'); if(mobileToggle){mobileToggle.textContent=futuristic?'C':'◆'; mobileToggle.title=futuristic?'Switch to Classic mode':'Switch to Futuristic preview';}
+}
+function toggleInterfaceMode(){ state.interfaceMode=state.interfaceMode==='futuristic'?'classic':'futuristic'; save(LS.interfaceMode,state.interfaceMode); applyInterfaceMode(); }
 function toggleTheme(){
   state.theme = state.theme === 'light' ? 'dark' : 'light';
   save(LS.theme, state.theme);
@@ -2055,6 +2064,11 @@ function bindFileBackup(){
 function init(){
   if (load(LS.accounts, null)===null) save(LS.accounts, state.accounts);
   applyTheme();
+  applyInterfaceMode();
+  const interfaceToggle=document.getElementById('interfaceModeToggle');
+  if(interfaceToggle) interfaceToggle.addEventListener('click',toggleInterfaceMode);
+  const interfaceMobileToggle=document.getElementById('interfaceModeMobileToggle');
+  if(interfaceMobileToggle) interfaceMobileToggle.addEventListener('click',toggleInterfaceMode);
   hideIntro();
   bindTodEditor();
   bindFileBackup();
