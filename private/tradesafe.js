@@ -1157,8 +1157,8 @@ function renderCalendarMonth(){
   const rank = { high:0, medium:1, low:2, holiday:3 };
 
   const dows = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-  let html = `<div class="grid grid-cols-7 gap-px bg-line border border-line rounded-xl overflow-hidden">`;
-  html += dows.map(d=>`<div class="bg-panel2 text-center text-[11px] uppercase tracking-wide text-faint py-2">${d}</div>`).join('');
+  let html = `<div class="economic-month-grid grid grid-cols-7 gap-px bg-line border border-line rounded-xl overflow-hidden">`;
+  html += dows.map(d=>`<div class="economic-month-weekday bg-panel2 text-center text-[11px] uppercase tracking-wide text-faint py-2">${d}</div>`).join('');
 
   for (let i=0;i<42;i++){
     const d = new Date(gridStart); d.setDate(gridStart.getDate()+i);
