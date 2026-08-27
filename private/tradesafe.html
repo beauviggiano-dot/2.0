@@ -180,6 +180,16 @@
     .theme-light.interface-futuristic .cal-cell .text-profit { color:rgb(var(--c-profit)) !important; }
     .theme-light.interface-futuristic .cal-cell .text-loss { color:rgb(var(--c-loss)) !important; }
     .theme-light.interface-futuristic .cal-cell .text-gold { color:rgb(var(--c-gold)) !important; }
+    /* Dashboard Trade Calendar grid: brighter cells and black neutral labels in light mode. */
+    .theme-light.interface-futuristic .tc-dashboard-grid { background:rgba(255,255,255,.46); }
+    .theme-light.interface-futuristic .tc-dashboard-weekday { background:rgba(255,255,255,.94) !important; color:#111827 !important; }
+    .theme-light.interface-futuristic .tc-dashboard-day { background:rgba(255,255,255,.92) !important; color:#111827 !important; border-color:rgba(65,91,111,.42) !important; }
+    .theme-light.interface-futuristic .tc-dashboard-day.opacity-40 { background:rgba(255,255,255,.72) !important; opacity:.78; }
+    .theme-light.interface-futuristic .tc-dashboard-day .text-muted, .theme-light.interface-futuristic .tc-dashboard-day .text-faint { color:#111827 !important; }
+    .theme-light.interface-futuristic .tc-dashboard-day .text-profit { color:rgb(var(--c-profit)) !important; }
+    .theme-light.interface-futuristic .tc-dashboard-day .text-loss { color:rgb(var(--c-loss)) !important; }
+    .theme-light.interface-futuristic .tc-dashboard-day .text-gold { color:rgb(var(--c-gold)) !important; }
+
     /* Trade Calendar grid: brighter cells and black neutral labels in light mode. */
     .theme-light.interface-futuristic #tcBody > div > div { background:rgba(255,255,255,.92) !important; color:#111827 !important; border-color:rgba(65,91,111,.42) !important; }
     .theme-light.interface-futuristic #tcBody > div > div.opacity-40 { background:rgba(255,255,255,.7) !important; opacity:.78; }
@@ -980,7 +990,7 @@
   <script>
   (function(){
     var s = document.createElement('script');
-    s.src = '/app/script?v=56';
+    s.src = '/app/script?v=57';
     document.body.appendChild(s);
   })();
   </script>
